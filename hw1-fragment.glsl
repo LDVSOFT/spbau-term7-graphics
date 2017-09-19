@@ -26,7 +26,7 @@ void main() {
 	int it;
 	for (it = 0; it < iterations; ++it) {
 		z = cx_mul(z, z) + c;
-		if (length(z) > 4) {
+		if (z.x * z.x + z.y * z.y > 4) {
 			float h = mod(log(it) * 20, 360);
 			if (h <= 60) {
 				outputColor = vec4(1, h / 60, 0, 1);

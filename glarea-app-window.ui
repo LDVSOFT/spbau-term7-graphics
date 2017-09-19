@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+	<requires lib="gtk+" version="3.16"/>
+	<object class="GtkAdjustment" id="iterations_adjustment">
+		<property name="lower">100</property>
+		<property name="value">100</property>
+		<property name="upper">10000</property>
+		<property name="step_increment">1</property>
+		<property name="page_increment">10</property>
+		<signal name="value-changed" handler="adjustment_changed" object="GlareaAppWindow" swapped="yes"/>
+	</object>
+	<template class="GlareaAppWindow" parent="GtkApplicationWindow">
+		<property name="can_focus">False</property>
+		<property name="border_width">6</property>
+		<property name="default_width">400</property>
+		<property name="default_height">600</property>
+		<property name="window_position">center</property>
+		<child>
+			<object class="GtkBox">
+				<property name="visible">True</property>
+				<property name="can_focus">False</property>
+				<property name="orientation">vertical</property>
+				<property name="spacing">6</property>
+				<child>
+					<object class="GtkEventBox">
+						<property name="visible">True</property>
+						<property name="can_focus">False</property>
+						<property name="hexpand">True</property>
+						<property name="vexpand">True</property>
+						<property name="events">GDK_BUTTON_MOTION_MASK | GDK_SCROLL_MASK | GDK_STRUCTURE_MASK</property>
+						<property name="above_child">True</property>
+						<signal name="button-press-event" handler="mouse_down" object="GlareaAppWindow" swapped="yes"/>
+						<signal name="button-release-event" handler="mouse_up" object="GlareaAppWindow" swapped="yes"/>
+						<signal name="motion-notify-event" handler="mouse_move" object="GlareaAppWindow" swapped="yes"/>
+						<signal name="scroll-event" handler="mouse_scroll" object="GlareaAppWindow" swapped="yes"/>
+						<child>
+							<object class="GtkGLArea" id="drawArea">
+								<property name="visible">True</property>
+								<property name="can_focus">False</property>
+								<property name="hexpand">True</property>
+								<property name="vexpand">True</property>
+								<signal name="realize" handler="gl_init" object="GlareaAppWindow" swapped="yes"/>
+								<signal name="unrealize" handler="gl_fini" object="GlareaAppWindow" swapped="yes"/>
+								<signal name="render" handler="gl_draw" object="GlareaAppWindow" swapped="yes"/>
+								<signal name="size-allocate" handler="size_changed" object="GlareaAppWindow" swapped="yes"/>
+							</object>
+						</child>
+					</object>
+				</child>
+				<child>
+					<object class="GtkBox">
+						<property name="visible">True</property>
+						<property name="can_focus">False</property>
+						<property name="border_width">2</property>
+						<property name="orientation">vertical</property>
+						<property name="spacing">6</property>
+						<child>
+							<object class="GtkBox">
+								<property name="visible">True</property>
+								<property name="can_focus">False</property>
+								<property name="spacing">6</property>
+								<child>
+									<object class="GtkLabel" id="label1">
+										<property name="visible">True</property>
+										<property name="can_focus">False</property>
+										<property name="label" translatable="yes">Iterations</property>
+									</object>
+									<packing>
+										<property name="expand">False</property>
+										<property name="fill">True</property>
+										<property name="position">0</property>
+									</packing>
+								</child>
+								<child>
+									<object class="GtkScale">
+										<property name="visible">True</property>
+										<property name="can_focus">True</property>
+										<property name="adjustment">iterations_adjustment</property>
+										<property name="round_digits">0</property>
+										<property name="value_pos">right</property>
+									</object>
+									<packing>
+										<property name="expand">True</property>
+										<property name="fill">True</property>
+										<property name="position">1</property>
+									</packing>
+								</child>
+							</object>
+							<packing>
+								<property name="expand">False</property>
+								<property name="fill">True</property>
+								<property name="position">0</property>
+							</packing>
+						</child>
+					</object>
+					<packing>
+						<property name="expand">False</property>
+						<property name="fill">True</property>
+						<property name="position">1</property>
+					</packing>
+				</child>
+				<child>
+					<object class="GtkButton" id="reset_button">
+						<property name="label" translatable="yes">_Reset position</property>
+						<property name="visible">True</property>
+						<property name="can_focus">True</property>
+						<property name="receives_default">True</property>
+						<property name="use_underline">True</property>
+						<signal name="clicked" handler="reset_position" object="GlareaAppWindow" swapped="yes"/>
+					</object>
+					<packing>
+						<property name="expand">False</property>
+						<property name="fill">True</property>
+						<property name="position">3</property>
+					</packing>
+				</child>
+				<child>
+					<object class="GtkButton" id="quit_button">
+						<property name="label" translatable="yes">_Quit</property>
+						<property name="visible">True</property>
+						<property name="can_focus">True</property>
+						<property name="receives_default">True</property>
+						<property name="use_underline">True</property>
+						<property name="action-name">app.quit</property>
+					</object>
+					<packing>
+						<property name="expand">False</property>
+						<property name="fill">True</property>
+						<property name="position">3</property>
+					</packing>
+				</child>
+			</object>
+		</child>
+	</template>
+	<object class="GtkSizeGroup" id="sizegroup1">
+		<widgets>
+			<widget name="label1"/>
+		</widgets>
+	</object>
+</interface>

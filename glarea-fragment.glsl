@@ -1,0 +1,37 @@
+#version 130
+
+uniform int iterations;
+
+smooth in highp vec2 planePosition;
+
+out vec4 outputColor;
+
+#define cx_mul(a, b) vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x)
+
+void main() {
+	highp vec2 c = planePosition;
+	highp vec2 z = vec2(0, 0);
+	int it;
+	for (it = 0; it < iterations; ++it) {
+		z = cx_mul(z, z) + c;
+		if (length(z) > 4) {
+			float h = it % 360;
+			if (h <= 60) {
+				outputColor = vec4(1, h / 60, 0, 1);
+			} else if (h <= 120) {
+				outputColor = vec4(2 - h / 60, 1, 0, 1);
+			} else if (h <= 180) {
+				outputColor = vec4(0, 1, h / 60 - 2, 1);
+			} else if (h <= 240) {
+				outputColor = vec4(0, 4 - h / 60, 1, 1);
+			} else if (h <= 300) {
+				outputColor = vec4(h / 60 - 4, 0, 1, 1);
+			} else {
+				outputColor = vec4(1, 0, 6 - h / 60, 1);
+			}
+			return;
+		}
+	}
+	vec2 t = (c + 1) / 2;
+	outputColor = vec4(0, 0, 0, 1);
+}

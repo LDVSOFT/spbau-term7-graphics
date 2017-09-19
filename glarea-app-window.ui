@@ -2,9 +2,9 @@
 <interface>
 	<requires lib="gtk+" version="3.16"/>
 	<object class="GtkAdjustment" id="iterations_adjustment">
-		<property name="lower">100</property>
-		<property name="value">100</property>
-		<property name="upper">10000</property>
+		<property name="lower">10</property>
+		<property name="value">10</property>
+		<property name="upper">5000</property>
 		<property name="step_increment">1</property>
 		<property name="page_increment">10</property>
 		<signal name="value-changed" handler="adjustment_changed" object="GlareaAppWindow" swapped="yes"/>
@@ -77,6 +77,7 @@
 										<property name="can_focus">True</property>
 										<property name="adjustment">iterations_adjustment</property>
 										<property name="round_digits">0</property>
+										<property name="digits">0</property>
 										<property name="value_pos">right</property>
 									</object>
 									<packing>

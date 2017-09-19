@@ -1,9 +1,9 @@
-#include "glarea-app-window.h"
-#include "glarea-error.h"
+#include "hw1-app-window.h"
+#include "hw1-error.h"
 #include <epoxy/gl.h>
 #include <math.h>
 
-struct _GlareaAppWindow {
+struct _Hw1AppWindow {
 	GtkApplicationWindow parent_instance;
 
 	GtkAdjustment *iterations_adjustment;
@@ -26,11 +26,11 @@ struct _GlareaAppWindow {
 	guint iterations_location;
 };
 
-struct _GlareaAppWindowClass {
+struct _Hw1AppWindowClass {
 	GtkApplicationWindowClass parent_class;
 };
 
-G_DEFINE_TYPE(GlareaAppWindow, glarea_app_window, GTK_TYPE_APPLICATION_WINDOW)
+G_DEFINE_TYPE(Hw1AppWindow, hw1_app_window, GTK_TYPE_APPLICATION_WINDOW)
 
 /* the vertex data is constant */
 static const GLfloat vertex_data[][2] = {
@@ -96,7 +96,7 @@ static guint create_shader(
 
 		g_set_error(
 				error, 
-				GLAREA_ERROR, GLAREA_ERROR_SHADER_COMPILATION,
+				HW1_ERROR, HW1_ERROR_SHADER_COMPILATION,
 				"Compilation failure in %s shader: %s",
 				shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
 				buffer
@@ -131,14 +131,14 @@ static gboolean init_shaders(
 	guint iterations_location = 0;
 
 	/* load the vertex shader */
-	source = g_resources_lookup_data("/io/bassi/glarea/glarea-vertex.glsl", 0, NULL);
+	source = g_resources_lookup_data("/net/ldvsoft/spbau/gl/hw1-vertex.glsl", 0, NULL);
 	create_shader(GL_VERTEX_SHADER, g_bytes_get_data(source, NULL), error, &vertex);
 	g_bytes_unref(source);
 	if (vertex == 0)
 		goto out;
 
 	/* load the fragment shader */
-	source = g_resources_lookup_data("/io/bassi/glarea/glarea-fragment.glsl", 0, NULL);
+	source = g_resources_lookup_data("/net/ldvsoft/spbau/gl/hw1-fragment.glsl", 0, NULL);
 	create_shader(GL_FRAGMENT_SHADER, g_bytes_get_data(source, NULL), error, &fragment);
 	g_bytes_unref(source);
 	if (fragment == 0)
@@ -161,7 +161,7 @@ static gboolean init_shaders(
 
 		g_set_error(
 				error, 
-				GLAREA_ERROR, GLAREA_ERROR_SHADER_LINK,
+				HW1_ERROR, HW1_ERROR_SHADER_LINK,
 				"Linking failure in program: %s", buffer
 		);
 
@@ -205,7 +205,7 @@ out:
 	return program != 0;
 }
 
-static void gl_init(GlareaAppWindow *self) {
+static void gl_init(Hw1AppWindow *self) {
 	char *title;
 	const char *renderer;
 
@@ -240,12 +240,12 @@ static void gl_init(GlareaAppWindow *self) {
 
 	/* set the window title */
 	renderer = (char *) glGetString(GL_RENDERER);
-	title = g_strdup_printf("glarea on %s", renderer ? renderer : "Unknown");
+	title = g_strdup_printf("hw1 on %s", renderer ? renderer : "Unknown");
 	gtk_window_set_title(GTK_WINDOW(self), title);
 	g_free(title);
 }
 
-static void gl_fini(GlareaAppWindow *self) {
+static void gl_fini(Hw1AppWindow *self) {
 	/* we need to ensure that the GdkGLContext is set before calling GL API */
 	gtk_gl_area_make_current(GTK_GL_AREA(self->drawArea));
 
@@ -260,7 +260,7 @@ static void gl_fini(GlareaAppWindow *self) {
 		glDeleteProgram(self->program);
 }
 
-static gboolean gl_draw(GlareaAppWindow *self) {
+static gboolean gl_draw(Hw1AppWindow *self) {
 	/* clear the viewport; the viewport is automatically resized when
 	 * the GtkGLArea gets a new size allocation
 	 */
@@ -293,7 +293,7 @@ static gboolean gl_draw(GlareaAppWindow *self) {
 }
 
 static void adjustment_changed(
-		GlareaAppWindow *self,
+		Hw1AppWindow *self,
 		GtkAdjustment *adj
 ) {
 	double value = gtk_adjustment_get_value(adj);
@@ -305,7 +305,7 @@ static void adjustment_changed(
 }
 
 static gboolean size_changed(
-		GlareaAppWindow *self,
+		Hw1AppWindow *self,
 		GtkWidget *widget,
 		GdkEvent *event
 ) {
@@ -324,7 +324,7 @@ static gboolean size_changed(
 }
 
 static void reset_position(
-		GlareaAppWindow *self,
+		Hw1AppWindow *self,
 		GtkButton *button
 ) {
 	if (button == self->reset_button) {
@@ -336,7 +336,7 @@ static void reset_position(
 }
 
 static gboolean mouse_down(
-		GlareaAppWindow *self,
+		Hw1AppWindow *self,
 		GdkEventButton *event
 ) {
 	self->mouseDown.x = event->x;
@@ -348,20 +348,20 @@ static gboolean mouse_down(
 }
 
 static gboolean mouse_up(
-		GlareaAppWindow *self,
+		Hw1AppWindow *self,
 		GdkEventButton *event
 ) {
+	(void) event;
 	self->mousePressed = false;
 	return false;
 }
 
 static gboolean mouse_scroll(
-		GlareaAppWindow *self,
+		Hw1AppWindow *self,
 		GdkEventScroll *event
 ) {
 	if (self->mousePressed)
 		return false;
-	float old = self->baseZoom;
 	switch (event->direction) {
 		case GDK_SCROLL_UP:
 			self->baseZoom = fmax(self->baseZoom /= 2, 1e-7);
@@ -369,13 +369,15 @@ static gboolean mouse_scroll(
 		case GDK_SCROLL_DOWN:
 			self->baseZoom = fmin(self->baseZoom *= 2, 2);
 			break;
+		default:
+			break;
 	}
 	size_changed(self, NULL, NULL);
 	return false;
 }
 
 static gboolean mouse_move(
-		GlareaAppWindow *self,
+		Hw1AppWindow *self,
 		GdkEventMotion* event
 ) {
 	GtkAllocation alloc;
@@ -391,14 +393,14 @@ static gboolean mouse_move(
 	return false;
 }
 
-static void glarea_app_window_class_init(GlareaAppWindowClass *klass) {
+static void hw1_app_window_class_init(Hw1AppWindowClass *klass) {
 	GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);
 
-	gtk_widget_class_set_template_from_resource(widget_class, "/io/bassi/glarea/glarea-app-window.ui");
+	gtk_widget_class_set_template_from_resource(widget_class, "/net/ldvsoft/spbau/gl/hw1-app-window.ui");
 
-	gtk_widget_class_bind_template_child(widget_class, GlareaAppWindow, drawArea);
-	gtk_widget_class_bind_template_child(widget_class, GlareaAppWindow, iterations_adjustment);
-	gtk_widget_class_bind_template_child(widget_class, GlareaAppWindow, reset_button);
+	gtk_widget_class_bind_template_child(widget_class, Hw1AppWindow, drawArea);
+	gtk_widget_class_bind_template_child(widget_class, Hw1AppWindow, iterations_adjustment);
+	gtk_widget_class_bind_template_child(widget_class, Hw1AppWindow, reset_button);
 
 	gtk_widget_class_bind_template_callback(widget_class, adjustment_changed);
 	gtk_widget_class_bind_template_callback(widget_class, size_changed);
@@ -414,7 +416,7 @@ static void glarea_app_window_class_init(GlareaAppWindowClass *klass) {
 	gtk_widget_class_bind_template_callback(widget_class, gl_fini);
 }
 
-static void glarea_app_window_init(GlareaAppWindow *self)
+static void hw1_app_window_init(Hw1AppWindow *self)
 {
 	gtk_widget_init_template(GTK_WIDGET(self));
 
@@ -422,9 +424,9 @@ static void glarea_app_window_init(GlareaAppWindow *self)
 	
 	reset_position(self, self->reset_button);
 
-	gtk_window_set_icon_name(GTK_WINDOW(self), "glarea");
+	gtk_window_set_icon_name(GTK_WINDOW(self), "hw1");
 }
 
-GtkWidget *glarea_app_window_new(GlareaApp *app) {
-	return g_object_new(glarea_app_window_get_type(), "application", app, NULL);
+GtkWidget *hw1_app_window_new(Hw1App *app) {
+	return g_object_new(hw1_app_window_get_type(), "application", app, NULL);
 }

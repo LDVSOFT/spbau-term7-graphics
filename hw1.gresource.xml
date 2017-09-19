@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/net/ldvsoft/spbau/gl">
+    <file preprocess="xml-stripblanks">hw1-app-window.ui</file>
+    <file preprocess="xml-stripblanks">hw1-app-menu.ui</file>
+    <file>hw1-fragment.glsl</file>
+    <file>hw1-vertex.glsl</file>
+  </gresource>
+</gresources>

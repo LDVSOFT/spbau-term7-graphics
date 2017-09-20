@@ -6,6 +6,7 @@
 #define TEXTURE_SIZE 360
 
 struct rgb { float r, g, b; };
+struct xy { float x, y; };
 
 struct _Hw1AppWindow {
 	GtkApplicationWindow parent_instance;
@@ -19,8 +20,8 @@ struct _Hw1AppWindow {
 	GLfloat baseZoom;
 
 	bool mousePressed;
-	struct { int x; int y; } mouseDown;
-	GLfloat center[2], mouseDownCenter[2], zoom[2];
+	struct xy mouseDown;
+	struct xy center, mouseDownCenter, zoom;
 	struct rgb texture_data[TEXTURE_SIZE];
 	GLint colorizer_period;
 
@@ -286,8 +287,8 @@ static gboolean gl_draw(Hw1AppWindow *self) {
 		/* load our program */
 		glUseProgram(self->program);
 
-		glUniform2fv(self->center_location, 1, self->center);
-		glUniform2fv(self->zoom_location, 1, self->zoom);
+		glUniform2fv(self->center_location, 1, (GLfloat *) &self->center);
+		glUniform2fv(self->zoom_location, 1, (GLfloat *) &self->zoom);
 		glUniform1i(self->iterations_location, self->iterations);
 		glUniform1i(self->colorizer_period_location, self->colorizer_period);
 		/* WTF? */
@@ -328,6 +329,17 @@ static void adjustment_changed(
 	}
 }
 
+static void refresh_zoom(Hw1AppWindow *self) {
+	GtkAllocation alloc;
+	gtk_widget_get_allocation(GTK_WIDGET(self->draw_area), &alloc);
+	float ratio = (alloc.width + .0) / alloc.height;
+
+	self->zoom = (struct xy) {
+		.x = fmax(1, ratio) * self->baseZoom,
+		.y = fmax(1, 1 / ratio) * self->baseZoom
+	};
+}
+
 static gboolean size_changed(
 		Hw1AppWindow *self,
 		GtkWidget *widget,
@@ -336,13 +348,7 @@ static gboolean size_changed(
 	(void) widget;
 	(void) event;
 
-	GtkAllocation alloc;
-	gtk_widget_get_allocation(GTK_WIDGET(self->draw_area), &alloc);
-	float ratio = (alloc.width + .0) / alloc.height;
-
-	self->zoom[0] = fmax(1, ratio) * self->baseZoom;
-	self->zoom[1] = fmax(1, 1 / ratio) * self->baseZoom;
-
+	refresh_zoom(self);
 	gtk_widget_queue_draw(GTK_WIDGET(self->draw_area));
 	return false;
 }
@@ -352,8 +358,7 @@ static void reset_position(
 		GtkButton *button
 ) {
 	if (button == self->reset_button) {
-		self->center[0] = -.5;
-	   	self->center[1] = 0;
+		self->center = (struct xy) { .x = -.5, .y = 0 };
 		self->baseZoom = 1;
 		size_changed(self, NULL, NULL);
 	}
@@ -365,8 +370,7 @@ static gboolean mouse_down(
 ) {
 	self->mouseDown.x = event->x;
 	self->mouseDown.y = event->y;
-	self->mouseDownCenter[0] = self->center[0];
-	self->mouseDownCenter[1] = self->center[1];
+	self->mouseDownCenter = self->center;
 	self->mousePressed = true;
 	return false;
 }
@@ -386,17 +390,35 @@ static gboolean mouse_scroll(
 ) {
 	if (self->mousePressed)
 		return false;
+	float newZoom;
 	switch (event->direction) {
 		case GDK_SCROLL_UP:
-			self->baseZoom = fmax(self->baseZoom /= 2, 1e-7);
+			newZoom = fmax(self->baseZoom / 1.5, 1e-7);
 			break;
 		case GDK_SCROLL_DOWN:
-			self->baseZoom = fmin(self->baseZoom *= 2, 2);
+			newZoom = fmin(self->baseZoom * 1.5, 2);
 			break;
 		default:
-			break;
+			return false;
 	}
-	size_changed(self, NULL, NULL);
+	GtkAllocation alloc;
+	gtk_widget_get_allocation(GTK_WIDGET(self->draw_area), &alloc);
+	struct xy coursorRelative = {
+		.x = +(event->x + 0.0) / alloc.width  * 2 - 1,
+		.y = -(event->y + 0.0) / alloc.height * 2 + 1
+	};
+	struct xy underCoursor = {
+		.x = self->center.x + coursorRelative.x * self->zoom.x,
+		.y = self->center.y + coursorRelative.y * self->zoom.y
+	};
+	self->baseZoom = newZoom;
+	refresh_zoom(self);
+	self->center = (struct xy) {
+		.x = underCoursor.x - coursorRelative.x * self->zoom.x,
+		.y = underCoursor.y - coursorRelative.y * self->zoom.y
+	};
+
+	gtk_widget_queue_draw(GTK_WIDGET(self->draw_area));
 	return false;
 }
 
@@ -405,13 +427,14 @@ static gboolean mouse_move(
 		GdkEventMotion* event
 ) {
 	GtkAllocation alloc;
-	alloc.x = gtk_widget_get_allocated_width (GTK_WIDGET(self->draw_area));
-	alloc.y = gtk_widget_get_allocated_height(GTK_WIDGET(self->draw_area));
-	float xMovement = -(event->x - self->mouseDown.x + (double)0.0) / alloc.x * 2 * self->zoom[0];
-	float yMovement = +(event->y - self->mouseDown.y + (double)0.0) / alloc.y * 2 * self->zoom[1];
+	gtk_widget_get_allocation(GTK_WIDGET(self->draw_area), &alloc);
+	float xMovement = -(event->x - self->mouseDown.x + (double)0.0) / alloc.width  * 2 * self->zoom.x;
+	float yMovement = +(event->y - self->mouseDown.y + (double)0.0) / alloc.height * 2 * self->zoom.y;
 
-	self->center[0] = self->mouseDownCenter[0] + xMovement;
-	self->center[1] = self->mouseDownCenter[1] + yMovement;
+	self->center = (struct xy) {
+		.x = self->mouseDownCenter.x + xMovement,
+		.y = self->mouseDownCenter.y + yMovement
+	};
 
 	gtk_widget_queue_draw(GTK_WIDGET(self->draw_area));
 	return false;

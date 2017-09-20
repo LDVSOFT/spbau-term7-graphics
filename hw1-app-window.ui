@@ -10,7 +10,7 @@
 		<signal name="value-changed" handler="adjustment_changed" object="Hw1AppWindow" swapped="yes"/>
 	</object>
 	<object class="GtkAdjustment" id="period_adjustment">
-		<property name="lower">180</property>
+		<property name="lower">90</property>
 		<property name="upper">720</property>
 		<property name="value">360</property>
 		<property name="step_increment">1</property>

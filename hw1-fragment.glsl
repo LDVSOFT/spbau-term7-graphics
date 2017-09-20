@@ -29,7 +29,7 @@ void main() {
 	for (it = 0; it < iterations; ++it) {
 		z = cx_mul(z, z) + c;
 		if (z.x * z.x + z.y * z.y > 4) {
-			float h = it == 0 ? 0 : log(float(it)) * 20;
+			float h = log(float(it) + 1) * 20;
 			outputColor = vec4(texture(colorizer, h / colorizer_period).rgb, 1);
 			return;
 		}

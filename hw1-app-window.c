@@ -3,11 +3,16 @@
 #include <epoxy/gl.h>
 #include <math.h>
 
+#define TEXTURE_SIZE 360
+
+struct rgb { float r, g, b; };
+
 struct _Hw1AppWindow {
 	GtkApplicationWindow parent_instance;
 
 	GtkAdjustment *iterations_adjustment;
-	GtkGLArea *drawArea;
+	GtkAdjustment *period_adjustment;
+	GtkGLArea *draw_area;
 	GtkButton *reset_button;
 
 	guint iterations;
@@ -16,14 +21,19 @@ struct _Hw1AppWindow {
 	bool mousePressed;
 	struct { int x; int y; } mouseDown;
 	GLfloat center[2], mouseDownCenter[2], zoom[2];
+	struct rgb texture_data[TEXTURE_SIZE];
+	GLint colorizer_period;
 
 	/* GL objects */
 	guint vao;
+	guint texture;
 	guint program;
-	guint position_index;
+	guint position_location;
 	guint center_location;
 	guint zoom_location;
 	guint iterations_location;
+	guint colorizer_location;
+	guint colorizer_period_location;
 };
 
 struct _Hw1AppWindowClass {
@@ -40,15 +50,12 @@ static const GLfloat vertex_data[][2] = {
 	{  1.f, -1.f },
 };
 
-static void init_buffers(
-		guint position_index,
-		guint *vao_out
-) {
-	guint vao, buffer;
+static void init_buffers(Hw1AppWindow *self) {
+	guint buffer;
 
 	/* we need to create a VAO to store the other buffers */
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	glGenVertexArrays(1, &self->vao);
+	glBindVertexArray(self->vao);
 
 	/* this is the VBO that holds the vertex data */
 	glGenBuffers(1, &buffer);
@@ -56,10 +63,10 @@ static void init_buffers(
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
 
 	/* enable and set the position attribute */
-	glEnableVertexAttribArray(position_index);
+	glEnableVertexAttribArray(self->position_location);
 	glVertexAttribPointer(
-			position_index, 
-			2, GL_FLOAT, 
+			self->position_location,
+			2, GL_FLOAT,
 			GL_FALSE,
 			sizeof(GLfloat[2]), NULL);
 
@@ -69,9 +76,6 @@ static void init_buffers(
 
 	/* the VBO is referenced by the VAO */
 	glDeleteBuffers(1, &buffer);
-
-	if (vao_out != NULL)
-		*vao_out = vao;
 }
 
 static guint create_shader(
@@ -95,7 +99,7 @@ static guint create_shader(
 		glGetShaderInfoLog(shader, log_len, NULL, buffer);
 
 		g_set_error(
-				error, 
+				error,
 				HW1_ERROR, HW1_ERROR_SHADER_COMPILATION,
 				"Compilation failure in %s shader: %s",
 				shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
@@ -114,21 +118,14 @@ static guint create_shader(
 	return shader != 0;
 }
 
-static gboolean init_shaders(
-		guint *program_out,
-		guint *position_location_out,
-		guint *center_location_out,
-		guint *zoom_location_out,
-		guint *iterations_location_out,
-		GError **error
-) {
+static gboolean init_shaders(Hw1AppWindow *self, GError **error) {
 	GBytes *source;
-	guint program = 0;
+	self->program = 0;
 	guint vertex = 0, fragment = 0;
-	guint position_location = 0;
-	guint center_location = 0;
-	guint zoom_location = 0;
-	guint iterations_location = 0;
+	self->position_location = 0;
+	self->center_location = 0;
+	self->zoom_location = 0;
+	self->iterations_location = 0;
 
 	/* load the vertex shader */
 	source = g_resources_lookup_data("/net/ldvsoft/spbau/gl/hw1-vertex.glsl", 0, NULL);
@@ -145,45 +142,47 @@ static gboolean init_shaders(
 		goto out;
 
 	/* link the vertex and fragment shaders together */
-	program = glCreateProgram();
-	glAttachShader(program, vertex);
-	glAttachShader(program, fragment);
-	glLinkProgram(program);
+	self->program = glCreateProgram();
+	glAttachShader(self->program, vertex);
+	glAttachShader(self->program, fragment);
+	glLinkProgram(self->program);
 
 	int status = 0;
-	glGetProgramiv(program, GL_LINK_STATUS, &status);
+	glGetProgramiv(self->program, GL_LINK_STATUS, &status);
 	if (status == GL_FALSE) {
 		int log_len = 0;
-		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &log_len);
+		glGetProgramiv(self->program, GL_INFO_LOG_LENGTH, &log_len);
 
 		char *buffer = g_malloc(log_len + 1);
-		glGetProgramInfoLog(program, log_len, NULL, buffer);
+		glGetProgramInfoLog(self->program, log_len, NULL, buffer);
 
 		g_set_error(
-				error, 
+				error,
 				HW1_ERROR, HW1_ERROR_SHADER_LINK,
 				"Linking failure in program: %s", buffer
 		);
 
 		g_free(buffer);
 
-		glDeleteProgram(program);
-		program = 0;
+		glDeleteProgram(self->program);
+		self->program = 0;
 
 		goto out;
 	}
 
 	/* get the location of the "position" attribute */
-	position_location = glGetAttribLocation(program, "position");
+	self->position_location = glGetAttribLocation(self->program, "position");
 
 	/* get the location of the uniforms */
-	center_location = glGetUniformLocation(program, "center");
-	zoom_location = glGetUniformLocation(program, "zoom");
-	iterations_location = glGetUniformLocation(program, "iterations");
+	self->center_location = glGetUniformLocation(self->program, "center");
+	self->zoom_location = glGetUniformLocation(self->program, "zoom");
+	self->iterations_location = glGetUniformLocation(self->program, "iterations");
+	self->colorizer_location = glGetUniformLocation(self->program, "colorizer");
+	self->colorizer_period_location = glGetUniformLocation(self->program, "colorizer_period");
 
 	/* the individual shaders can be detached and destroyed */
-	glDetachShader(program, vertex);
-	glDetachShader(program, fragment);
+	glDetachShader(self->program, vertex);
+	glDetachShader(self->program, fragment);
 
 out:
 	if (vertex != 0)
@@ -191,18 +190,41 @@ out:
 	if (fragment != 0)
 		glDeleteShader(fragment);
 
-	if (program_out != NULL)
-		*program_out = program;
-	if (position_location_out != NULL)
-		*position_location_out = position_location;
-	if (center_location_out != NULL)
-		*center_location_out = center_location;
-	if (zoom_location_out != NULL)
-		*zoom_location_out = zoom_location;
-	if (iterations_location_out != NULL)
-		*iterations_location_out = iterations_location;
+	return self->program != 0;
+}
 
-	return program != 0;
+static void hsv_to_rgb(float h, float s, float v, struct rgb *rgb) {
+	float c = v * s;
+	float x = c * (1 - fabsf(fmodf(h / 60, 2) - 1));
+	float m = v - c;
+	int i = roundf(h - fmodf(h, 60)) / 60;
+	switch (i) {
+		case 0: *rgb = (struct rgb) { .r = c + m, .g = x + m, .b = 0 + m } ; break;
+		case 1: *rgb = (struct rgb) { .r = x + m, .g = c + m, .b = 0 + m } ; break;
+		case 2: *rgb = (struct rgb) { .r = 0 + m, .g = c + m, .b = x + m } ; break;
+		case 3: *rgb = (struct rgb) { .r = 0 + m, .g = x + m, .b = c + m } ; break;
+		case 4: *rgb = (struct rgb) { .r = x + m, .g = 0 + m, .b = c + m } ; break;
+		case 5: *rgb = (struct rgb) { .r = c + m, .g = 0 + m, .b = x + m } ; break;
+	}
+}
+
+static void init_texture(Hw1AppWindow *self) {
+	for (int i = 0; i != TEXTURE_SIZE; ++i) {
+		float h = i * 360.0 / TEXTURE_SIZE;
+		hsv_to_rgb(h, 1, 1, &self->texture_data[i]);
+	}
+
+	glGenTextures(1, &self->texture);
+	glBindTexture(GL_TEXTURE_1D, self->texture);
+	glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, TEXTURE_SIZE, 0, GL_RGB, GL_FLOAT, self->texture_data);
+
+	glGenerateMipmap(GL_TEXTURE_1D);
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	glBindTexture(GL_TEXTURE_1D, 0);
 }
 
 static void gl_init(Hw1AppWindow *self) {
@@ -210,33 +232,26 @@ static void gl_init(Hw1AppWindow *self) {
 	const char *renderer;
 
 	/* we need to ensure that the GdkGLContext is set before calling GL API */
-	gtk_gl_area_make_current(GTK_GL_AREA(self->drawArea));
+	gtk_gl_area_make_current(GTK_GL_AREA(self->draw_area));
 
 	/* if the GtkGLArea is in an error state we don't do anything */
-	if (gtk_gl_area_get_error(GTK_GL_AREA(self->drawArea)) != NULL)
+	if (gtk_gl_area_get_error(GTK_GL_AREA(self->draw_area)) != NULL)
 		return;
 
 	/* initialize the shaders and retrieve the program data */
 	GError *error = NULL;
-	if (!init_shaders(
-				&self->program,
-				&self->position_index,
-				&self->center_location,
-				&self->zoom_location,
-				&self->iterations_location,
-				&error
-		)
-	) {
+	if (!init_shaders(self, &error)) {
 		/* set the GtkGLArea in error state, so we'll see the error message
 		 * rendered inside the viewport
 		 */
-		gtk_gl_area_set_error(GTK_GL_AREA(self->drawArea), error);
+		gtk_gl_area_set_error(GTK_GL_AREA(self->draw_area), error);
 		g_error_free(error);
 		return;
 	}
 
 	/* initialize the vertex buffers */
-	init_buffers(self->position_index, &self->vao);
+	init_buffers(self);
+	init_texture(self);
 
 	/* set the window title */
 	renderer = (char *) glGetString(GL_RENDERER);
@@ -247,10 +262,10 @@ static void gl_init(Hw1AppWindow *self) {
 
 static void gl_fini(Hw1AppWindow *self) {
 	/* we need to ensure that the GdkGLContext is set before calling GL API */
-	gtk_gl_area_make_current(GTK_GL_AREA(self->drawArea));
+	gtk_gl_area_make_current(GTK_GL_AREA(self->draw_area));
 
 	/* skip everything if we're in error state */
-	if (gtk_gl_area_get_error(GTK_GL_AREA(self->drawArea)) != NULL)
+	if (gtk_gl_area_get_error(GTK_GL_AREA(self->draw_area)) != NULL)
 		return;
 
 	/* destroy all the resources we created */
@@ -274,6 +289,10 @@ static gboolean gl_draw(Hw1AppWindow *self) {
 		glUniform2fv(self->center_location, 1, self->center);
 		glUniform2fv(self->zoom_location, 1, self->zoom);
 		glUniform1i(self->iterations_location, self->iterations);
+		glUniform1i(self->colorizer_period_location, self->colorizer_period);
+		/* WTF? */
+		glUniform1i(self->colorizer_location, 0);
+		glBindTexture(GL_TEXTURE_1D, self->texture);
 
 		/* use the buffers in the VAO */
 		glBindVertexArray(self->vao);
@@ -282,6 +301,7 @@ static gboolean gl_draw(Hw1AppWindow *self) {
 		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
 		/* we finished using the buffers and program */
+		glBindTexture(GL_TEXTURE_1D, 0);
 		glBindVertexArray(0);
 		glUseProgram(0);
 	}
@@ -300,7 +320,11 @@ static void adjustment_changed(
 
 	if (adj == self->iterations_adjustment) {
 		self->iterations = value;
-		gtk_widget_queue_draw(GTK_WIDGET(self->drawArea));
+		gtk_widget_queue_draw(GTK_WIDGET(self->draw_area));
+	}
+	if (adj == self->period_adjustment) {
+		self->colorizer_period = value;
+		gtk_widget_queue_draw(GTK_WIDGET(self->draw_area));
 	}
 }
 
@@ -313,13 +337,13 @@ static gboolean size_changed(
 	(void) event;
 
 	GtkAllocation alloc;
-	gtk_widget_get_allocation(GTK_WIDGET(self->drawArea), &alloc);
+	gtk_widget_get_allocation(GTK_WIDGET(self->draw_area), &alloc);
 	float ratio = (alloc.width + .0) / alloc.height;
 
 	self->zoom[0] = fmax(1, ratio) * self->baseZoom;
 	self->zoom[1] = fmax(1, 1 / ratio) * self->baseZoom;
-	
-	gtk_widget_queue_draw(GTK_WIDGET(self->drawArea));
+
+	gtk_widget_queue_draw(GTK_WIDGET(self->draw_area));
 	return false;
 }
 
@@ -381,15 +405,15 @@ static gboolean mouse_move(
 		GdkEventMotion* event
 ) {
 	GtkAllocation alloc;
-	alloc.x = gtk_widget_get_allocated_width (GTK_WIDGET(self->drawArea));
-	alloc.y = gtk_widget_get_allocated_height(GTK_WIDGET(self->drawArea));
+	alloc.x = gtk_widget_get_allocated_width (GTK_WIDGET(self->draw_area));
+	alloc.y = gtk_widget_get_allocated_height(GTK_WIDGET(self->draw_area));
 	float xMovement = -(event->x - self->mouseDown.x + (double)0.0) / alloc.x * 2 * self->zoom[0];
 	float yMovement = +(event->y - self->mouseDown.y + (double)0.0) / alloc.y * 2 * self->zoom[1];
 
 	self->center[0] = self->mouseDownCenter[0] + xMovement;
 	self->center[1] = self->mouseDownCenter[1] + yMovement;
 
-	gtk_widget_queue_draw(GTK_WIDGET(self->drawArea));
+	gtk_widget_queue_draw(GTK_WIDGET(self->draw_area));
 	return false;
 }
 
@@ -398,19 +422,20 @@ static void hw1_app_window_class_init(Hw1AppWindowClass *klass) {
 
 	gtk_widget_class_set_template_from_resource(widget_class, "/net/ldvsoft/spbau/gl/hw1-app-window.ui");
 
-	gtk_widget_class_bind_template_child(widget_class, Hw1AppWindow, drawArea);
+	gtk_widget_class_bind_template_child(widget_class, Hw1AppWindow, draw_area);
 	gtk_widget_class_bind_template_child(widget_class, Hw1AppWindow, iterations_adjustment);
+	gtk_widget_class_bind_template_child(widget_class, Hw1AppWindow, period_adjustment);
 	gtk_widget_class_bind_template_child(widget_class, Hw1AppWindow, reset_button);
 
 	gtk_widget_class_bind_template_callback(widget_class, adjustment_changed);
 	gtk_widget_class_bind_template_callback(widget_class, size_changed);
 	gtk_widget_class_bind_template_callback(widget_class, reset_position);
-	
+
 	gtk_widget_class_bind_template_callback(widget_class, mouse_down);
 	gtk_widget_class_bind_template_callback(widget_class, mouse_up);
 	gtk_widget_class_bind_template_callback(widget_class, mouse_move);
 	gtk_widget_class_bind_template_callback(widget_class, mouse_scroll);
-	
+
 	gtk_widget_class_bind_template_callback(widget_class, gl_init);
 	gtk_widget_class_bind_template_callback(widget_class, gl_draw);
 	gtk_widget_class_bind_template_callback(widget_class, gl_fini);
@@ -421,7 +446,8 @@ static void hw1_app_window_init(Hw1AppWindow *self)
 	gtk_widget_init_template(GTK_WIDGET(self));
 
 	self->iterations = gtk_adjustment_get_value(self->iterations_adjustment);
-	
+	self->colorizer_period = gtk_adjustment_get_value(self->period_adjustment);
+
 	reset_position(self, self->reset_button);
 
 	gtk_window_set_icon_name(GTK_WINDOW(self), "hw1");

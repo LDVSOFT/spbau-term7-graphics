@@ -33,7 +33,7 @@ void main() {
 	for (it = 0; it < iterations; ++it) {
 		z = cx_mul(z, z) + c;
 		if (z.x * z.x + z.y * z.y > 4) {
-			float h = mod(log(it) * 20, 360) / 360;
+			float h = it == 0 ? 0 : mod(log(float(it)) * 20, 360) / 360;
 			outputColor = vec4(hsv2rgb(vec3(h, 1, 1)), 1);
 			return;
 		}

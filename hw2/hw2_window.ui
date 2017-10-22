@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with glade 3.20.0 -->
+<interface>
+  <requires lib="gtk+" version="3.16"/>
+  <object class="GtkApplicationWindow" id="Hw2Window">
+    <property name="can_focus">False</property>
+    <property name="border_width">6</property>
+    <property name="window_position">center</property>
+    <property name="default_width">400</property>
+    <property name="default_height">600</property>
+    <child>
+      <object class="GtkBox">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">6</property>
+        <child>
+          <object class="GtkEventBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="events">GDK_BUTTON_MOTION_MASK | GDK_STRUCTURE_MASK | GDK_SCROLL_MASK</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <property name="above_child">True</property>
+            <signal name="button-press-event" handler="mouse_down" object="Hw1AppWindow" swapped="yes"/>
+            <signal name="button-release-event" handler="mouse_up" object="Hw1AppWindow" swapped="yes"/>
+            <signal name="motion-notify-event" handler="mouse_move" object="Hw1AppWindow" swapped="yes"/>
+            <signal name="scroll-event" handler="mouse_scroll" object="Hw1AppWindow" swapped="yes"/>
+            <child>
+              <object class="GtkGLArea" id="draw_area">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
+                <signal name="realize" handler="gl_init" object="Hw1AppWindow" swapped="yes"/>
+                <signal name="unrealize" handler="gl_fini" object="Hw1AppWindow" swapped="yes"/>
+                <signal name="render" handler="gl_draw" object="Hw1AppWindow" swapped="yes"/>
+                <signal name="size-allocate" handler="size_changed" object="Hw1AppWindow" swapped="yes"/>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="reset_button">
+            <property name="label" translatable="yes">_Reset position</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <property name="use_underline">True</property>
+            <signal name="clicked" handler="reset_position" object="Hw1AppWindow" swapped="yes"/>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">3</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="quit_button">
+            <property name="label" translatable="yes">_Quit</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <property name="action_name">app.quit</property>
+            <property name="use_underline">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">4</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

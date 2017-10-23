@@ -1,3 +1,4 @@
 *.o
 /hw2
 /hw2_resources.cpp
+/Makefile.*

@@ -11,7 +11,7 @@ endif
 
 # Build:
 
-SRC = hw2_window.cpp hw2_app.cpp main.cpp
+SRC = hw2_window.cpp hw2_app.cpp hw2_error.cpp main.cpp
 GEN = hw2_resources.cpp
 BIN = hw2
 

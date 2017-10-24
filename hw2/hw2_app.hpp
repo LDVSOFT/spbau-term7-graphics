@@ -1,3 +1,5 @@
+#pragma once
+
 #include "hw2_window.hpp"
 
 #include <gtkmm/application.h>

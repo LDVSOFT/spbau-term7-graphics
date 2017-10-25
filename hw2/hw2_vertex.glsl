@@ -2,9 +2,12 @@
 
 uniform mat4 mvp;
 
-in vec2 position;
+in vec3 vertex_position;
+in vec3 vertex_color;
+
+out vec4 clr;
 
 void main() {
-	gl_Position = mvp * vec4(position.xy, 0.0, 1.0);
-//	gl_Position = vec4(position.xy, 0.0, 1.0);
+	gl_Position = mvp * vec4(vertex_position.xyz, 1.0);
+	clr = vec4(vertex_color, .5);
 }

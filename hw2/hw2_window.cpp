@@ -22,8 +22,17 @@ unique_ptr<Hw2Window> Hw2Window::create() {
 	auto builder{Gtk::Builder::create_from_resource("/net/ldvsoft/spbau/gl/hw2_window.ui")};
 	Hw2Window *result;
 	builder->get_widget_derived("Hw2Window", result);
-	
+
 	return unique_ptr<Hw2Window>(result);
+}
+
+[[maybe_unused]]
+static void check(std::string const &name) {
+	GLuint error{glGetError()};
+	if (error == GL_NO_ERROR)
+		std::cout << "Check " << name << " ok" << std::endl;
+	else
+		std::cout << "Check " << name << " FAILED " << std::hex << error << std::endl;
 }
 
 Hw2Window::Hw2Window(
@@ -36,6 +45,9 @@ Hw2Window::Hw2Window(
 	builder->get_widget("draw_area", area);
 	builder->get_widget("draw_area_eventbox", area_eventbox);
 	builder->get_widget("animate_toggle", animate);
+	builder->get_widget("reset_button", reset);
+
+	area->set_has_depth_buffer();
 
 	area->signal_realize().connect(sigc::mem_fun(*this, &Hw2Window::gl_init));
 	area->signal_unrealize().connect(sigc::mem_fun(*this, &Hw2Window::gl_finit));
@@ -51,12 +63,16 @@ void Hw2Window::gl_init() {
 	if (area->has_error())
 		return;
 
+	/* base */ {
+		glEnable(GL_DEPTH_TEST);
+	}
+
 	/* shaders */ {
 		auto create_shader{[this](GLenum type, std::string const &path) -> GLuint {
 			auto source_resource{Resource::lookup_data_global(path)};
 			gsize source_size;
 			auto source{static_cast<const char*>(source_resource->get_data(source_size))};
-			
+
 			GLuint shader{glCreateShader(type)};
 			/* meh */ {
 				auto size{static_cast<GLint>(source_size)};
@@ -119,7 +135,8 @@ void Hw2Window::gl_init() {
 		}
 
 		/* parameters */ {
-			gl.shader.position_location = glGetAttribLocation (gl.shader.program, "position");
+			gl.shader.position_location = glGetAttribLocation (gl.shader.program, "vertex_position");
+			gl.shader.color_location    = glGetAttribLocation (gl.shader.program, "vertex_color");
 
 			gl.shader.mvp_location      = glGetUniformLocation(gl.shader.program, "mvp");
 		}
@@ -129,32 +146,63 @@ void Hw2Window::gl_init() {
 		glGenVertexArrays(1, &gl.scene.vao);
 		glBindVertexArray(gl.scene.vao);
 
-		static const GLfloat vertex_data[4][2] = {
-			{  0.5f,  0.5f },
-			{ -0.5f,  0.5f },
-			{ -0.5f, -0.5f },
-			{  0.5f, -0.5f },
+		static const struct vertex_data_s { GLfloat pos[3]; GLfloat clr[3]; } vertex_data[] = {
+			{ { -1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f } },
+			{ { -1.0f, -1.0f, +1.0f }, { 0.0f, 0.0f, 1.0f } },
+			{ { +1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f } },
+			{ { +1.0f, -1.0f, +1.0f }, { 1.0f, 0.0f, 1.0f } },
+			{ { -1.0f, +1.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } },
+			{ { -1.0f, +1.0f, +1.0f }, { 0.0f, 1.0f, 1.0f } },
+			{ { +1.0f, +1.0f, -1.0f }, { 1.0f, 1.0f, 0.0f } },
+			{ { +1.0f, +1.0f, +1.0f }, { 1.0f, 1.0f, 1.0f } },
+		};
+		static const GLushort vertex_ids[12][3] = {
+			{ 0, 1, 2 }, { 1, 2, 3 },
+			{ 0, 1, 4 }, { 1, 4, 5 },
+			{ 0, 2, 4 }, { 2, 4, 6 },
+			{ 1, 3, 5 }, { 3, 5, 7 },
+			{ 2, 3, 6 }, { 3, 6, 7 },
+			{ 4, 5, 6 }, { 5, 6, 7 },
 		};
 
-		GLuint buffer;
-		glGenBuffers(1, &buffer);
-		glBindBuffer(GL_ARRAY_BUFFER, buffer);
+		GLuint vertex_data_buffer;
+		glGenBuffers(1, &vertex_data_buffer);
+		glBindBuffer(GL_ARRAY_BUFFER, vertex_data_buffer);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
+
+		glGenBuffers(1, &gl.scene.elements_buffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl.scene.elements_buffer);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(vertex_ids), vertex_ids, GL_STATIC_DRAW);
 
 		/* position */ {
 			glEnableVertexAttribArray(gl.shader.position_location);
-			glVertexAttribPointer(gl.shader.position_location, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat[2]), nullptr);
+			glVertexAttribPointer(gl.shader.position_location,
+					3, GL_FLOAT,
+					GL_FALSE,
+					sizeof(vertex_data_s), reinterpret_cast<GLvoid const *>(offsetof(vertex_data_s, pos))
+			);
+		}
+		/* color */ {
+			glEnableVertexAttribArray(gl.shader.color_location);
+			glVertexAttribPointer(gl.shader.color_location,
+					3, GL_FLOAT,
+					GL_FALSE,
+					sizeof(vertex_data_s), reinterpret_cast<GLvoid const *>(offsetof(vertex_data_s, clr))
+			);
 		}
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 
-		glDeleteBuffers(1, &buffer);
+		glDeleteBuffers(1, &vertex_data_buffer);
 	}
 
-	gl.scene.projection = glm::lookAt(glm::vec3(2.0f,2.0f,2.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(0.0f,1.0f,0.0f));
-
-	std::cout << "GL init" << std::endl;
+	gl.scene.projection = glm::lookAt(
+			/* from = */ glm::vec3(-2.0f, 1.6f, 3.0f),
+			/* to   = */ glm::vec3(0.0f, 0.0f, 0.0f),
+			/* up   = */ glm::vec3(0.0f, 1.0f, 0.0f)
+	);
 }
 
 void Hw2Window::gl_finit() {
@@ -168,23 +216,27 @@ void Hw2Window::gl_finit() {
 bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	(void) context;
 
-	std::cout << "GL render" << std::endl;
-
-	glClearColor(.0, .0, .0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(.3, .3, .3, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (gl.shader.program != 0 && gl.scene.vao != 0) {
-		gl.scene.mvp = glm::perspective(glm::radians(60.0f), static_cast<float>(area->get_width()) / area->get_height(), 0.1f, 100.0f) * gl.scene.projection;
+		gl.scene.mvp = glm::perspective(
+				/* vertical fov = */ glm::radians(60.0f),
+				/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
+				/* planes       : */ 1.0f, 10000.0f
+		) * gl.scene.projection * glm::mat4(1.0f);
 
 		glUseProgram(gl.shader.program);
 		glBindVertexArray(gl.scene.vao);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl.scene.elements_buffer);
 
 		glUniformMatrix4fv(gl.shader.mvp_location, 1, GL_FALSE, &gl.scene.mvp[0][0]);
 
-		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+		glDrawElements(GL_TRIANGLES, 6 * 2 * 3, GL_UNSIGNED_SHORT, nullptr);
 
 		glUseProgram(0);
 		glBindVertexArray(0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 	glFlush();
 

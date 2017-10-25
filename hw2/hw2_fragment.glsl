@@ -1,7 +1,10 @@
 #version 130
 
+in vec4 clr;
+
 out vec4 colorOutput;
 
 void main() {
-	colorOutput = vec4(1, 1, 1, 1);
+	colorOutput = clr;
+//	colorOutput = vec4(gl_FragCoord.zzz, clr.w); // Limbo
 }

@@ -198,11 +198,7 @@ void Hw2Window::gl_init() {
 		glDeleteBuffers(1, &vertex_data_buffer);
 	}
 
-	gl.scene.projection = glm::lookAt(
-			/* from = */ glm::vec3(-2.0f, 1.6f, 3.0f),
-			/* to   = */ glm::vec3(0.0f, 0.0f, 0.0f),
-			/* up   = */ glm::vec3(0.0f, 1.0f, 0.0f)
-	);
+	update_camera();
 }
 
 void Hw2Window::gl_finit() {
@@ -221,9 +217,9 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 
 	if (gl.shader.program != 0 && gl.scene.vao != 0) {
 		gl.scene.mvp = glm::perspective(
-				/* vertical fov = */ glm::radians(60.0f),
-				/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
-				/* planes       : */ 1.0f, 10000.0f
+			/* vertical fov = */ glm::radians(60.0f),
+			/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
+			/* planes       : */ 1.0f, 10000.0f
 		) * gl.scene.projection * glm::mat4(1.0f);
 
 		glUseProgram(gl.shader.program);
@@ -243,9 +239,46 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	return false;
 }
 
+static gboolean animate_tick_wrapper(GtkWidget *, GdkFrameClock *clock, gpointer data) {
+	static_cast<Hw2Window *>(data)->animate_tick(gdk_frame_clock_get_frame_time(clock));
+	return G_SOURCE_CONTINUE;
+}
+
 void Hw2Window::animate_toggled() {
 	bool state{animate->get_active()};
 	if (state) {
+		animation_state = PENDING;
+		animation_id = gtk_widget_add_tick_callback(GTK_WIDGET(area->gobj()), animate_tick_wrapper, this, nullptr);
 	} else {
+		animation_state = STOPPED;
+		gtk_widget_remove_tick_callback(GTK_WIDGET(area->gobj()), animation_id);
 	}
+}
+
+void Hw2Window::animate_tick(gint64 new_time) {
+	if (animation_state == PENDING) {
+		animation_start_time = new_time;
+		animation_start_angle = gl.scene.angle;
+		animation_state = STARTED;
+		return;
+	}
+
+	gint64 delta{new_time - animation_start_time};
+	double secondsDelta{delta / static_cast<double>(G_USEC_PER_SEC)};
+	gl.scene.angle = fmod(animation_start_angle + secondsDelta * anglePerSecond, 2 * M_PI);
+	update_camera();
+	area->queue_render();
+}
+
+void Hw2Window::update_camera() {
+	double t{cos(3 * gl.scene.angle) * M_PI / 6};
+	gl.scene.projection = glm::lookAt(
+		/* from = */ glm::vec3(
+			4 * sin(gl.scene.angle) * cos(t),
+			4 * sin(t),
+			4 * cos(gl.scene.angle) * cos(t)
+		),
+		/* to   = */ glm::vec3(0.0f, 0.0f, 0.0f),
+		/* up   = */ glm::vec3(0.0f, 1.0f, 0.0f)
+	);
 }

@@ -31,23 +31,39 @@ private:
 		} shader;
 
 		struct {
+			glm::mat4 camera;
 			glm::mat4 projection;
 			glm::mat4 mvp;
 
 			GLuint vao{0};
 			GLuint elements_buffer{0};
+
+			float angle{0};
 		} scene;
 	} gl;
+
+	enum {
+		STOPPED,
+		PENDING,
+		STARTED
+	} animation_state{STOPPED};
+	guint animation_id;
+	gint64 animation_start_time;
+	double const anglePerSecond{M_PI / 2};
+	float animation_start_angle;
 
 	void gl_init();
 	void gl_finit();
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
 
 	void animate_toggled();
+	void update_camera();
 
 public:
 	static std::unique_ptr<Hw2Window> create();
 
 	Hw2Window(BaseObjectType *type, Glib::RefPtr<Gtk::Builder> const &builder);
 	~Hw2Window() override;
+
+	void animate_tick(gint64 time);
 };

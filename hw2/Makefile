@@ -11,7 +11,7 @@ endif
 
 # Build:
 
-SRC = hw2_window.cpp hw2_app.cpp hw2_error.cpp main.cpp
+SRC = hw2_window.cpp hw2_app.cpp hw2_error.cpp main.cpp object.cpp
 GEN = hw2_resources.cpp
 BIN = hw2
 
@@ -24,7 +24,7 @@ all: $(BIN)
 CXX = g++ -std=c++14 -Wall -Wextra -Werror -Wno-deprecated -g
 PKGCONFIG = pkg-config
 LIBS = gtkmm-3.0 gio-2.0 epoxy
-CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS))
+CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS) | sed 's/-I/-isystem/g')
 LFLAGS = $(shell $(PKGCONFIG) --libs   $(LIBS))
 GLIB_COMPILE_RESOURCES = $(shell $(PKGCONFIG) --variable=glib_compile_resources gio-2.0)
 GLIB_COMPILE_SCHEMAS   = $(shell $(PKGCONFIG) --variable=glib_compile_schemas gio-2.0)

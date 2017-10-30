@@ -1,13 +1,16 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <epoxy/gl.h>
 
-#include <vector>
-#include <string>
-#include <ostream>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+
 #include <array>
+#include <ostream>
+#include <string>
+#include <vector>
 
-class object {
+class Object {
 public:
 	struct vertex_data {
 		glm::vec3 pos;
@@ -15,19 +18,17 @@ public:
 		glm::vec2 uv;
 	};
 
-	static object load(std::string const &obj);
-	friend std::ostream &operator<<(std::ostream &s, object const &o);
+	static Object load(std::string const &obj);
+	friend std::ostream &operator<<(std::ostream &s, Object const &o);
 
 private:
-	std::vector<vertex_data> verticies;
-	std::vector<std::array<size_t, 3>> faces;
-
-	object() = default;
+	Object() = default;
 
 public:
-	glm::mat4 position;
-
+	std::vector<vertex_data> verticies;
+	std::vector<std::array<GLuint, 3>> faces;
+	
 	void recalculate_normals();
 };
 
-std::ostream &operator<<(std::ostream &s, object const &o);
+std::ostream &operator<<(std::ostream &s, Object const &o);

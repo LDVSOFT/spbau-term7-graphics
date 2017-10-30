@@ -2,7 +2,12 @@
 <gresources>
 	<gresource prefix="/net/ldvsoft/spbau/gl">
 		<file preprocess="xml-stripblanks">hw2_window.ui</file>
+
 		<file>hw2_vertex.glsl</file>
 		<file>hw2_fragment.glsl</file>
+
+		<file>cube.obj</file>
+		<file>stanford_bunny.obj</file>
+		<file>ico.obj</file>
 	</gresource>
 </gresources>

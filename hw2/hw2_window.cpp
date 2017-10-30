@@ -3,6 +3,7 @@
 
 #include <epoxy/gl.h>
 
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 
 #include <iostream>
@@ -63,15 +64,22 @@ void Hw2Window::gl_init() {
 	if (area->has_error())
 		return;
 
+	auto load_resource{[this](std::string const &path) -> std::tuple<char const *, size_t> {
+		auto resource_bytes{Resource::lookup_data_global(path)};
+		gsize resource_size;
+		auto resource{static_cast<const char*>(resource_bytes->get_data(resource_size))};
+		return {resource, resource_size};
+	}};
+
 	/* base */ {
 		glEnable(GL_DEPTH_TEST);
 	}
 
 	/* shaders */ {
-		auto create_shader{[this](GLenum type, std::string const &path) -> GLuint {
-			auto source_resource{Resource::lookup_data_global(path)};
-			gsize source_size;
-			auto source{static_cast<const char*>(source_resource->get_data(source_size))};
+		auto create_shader{[&,this](GLenum type, std::string const &path) -> GLuint {
+			char const *source;
+			size_t source_size;
+			std::tie(source, source_size) = load_resource(path);
 
 			GLuint shader{glCreateShader(type)};
 			/* meh */ {
@@ -142,63 +150,22 @@ void Hw2Window::gl_init() {
 		}
 	}
 
-	/* object */ {
-		glGenVertexArrays(1, &gl.scene.vao);
-		glBindVertexArray(gl.scene.vao);
-
-		static const struct vertex_data_s { GLfloat pos[3]; GLfloat clr[3]; } vertex_data[] = {
-			{ { -1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f } },
-			{ { -1.0f, -1.0f, +1.0f }, { 0.0f, 0.0f, 1.0f } },
-			{ { +1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f } },
-			{ { +1.0f, -1.0f, +1.0f }, { 1.0f, 0.0f, 1.0f } },
-			{ { -1.0f, +1.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } },
-			{ { -1.0f, +1.0f, +1.0f }, { 0.0f, 1.0f, 1.0f } },
-			{ { +1.0f, +1.0f, -1.0f }, { 1.0f, 1.0f, 0.0f } },
-			{ { +1.0f, +1.0f, +1.0f }, { 1.0f, 1.0f, 1.0f } },
-		};
-		static const GLushort vertex_ids[12][3] = {
-			{ 0, 1, 2 }, { 1, 2, 3 },
-			{ 0, 1, 4 }, { 1, 4, 5 },
-			{ 0, 2, 4 }, { 2, 4, 6 },
-			{ 1, 3, 5 }, { 3, 5, 7 },
-			{ 2, 3, 6 }, { 3, 6, 7 },
-			{ 4, 5, 6 }, { 5, 6, 7 },
-		};
-
-		GLuint vertex_data_buffer;
-		glGenBuffers(1, &vertex_data_buffer);
-		glBindBuffer(GL_ARRAY_BUFFER, vertex_data_buffer);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
-
-		glGenBuffers(1, &gl.scene.elements_buffer);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl.scene.elements_buffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(vertex_ids), vertex_ids, GL_STATIC_DRAW);
+	/* scene */ {
+		::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
+		obj.recalculate_normals();
+		std::cout << obj << std::endl;
+		gl.object = std::make_unique<SceneObject>(obj);
+		gl.object->position = glm::scale(glm::vec3(10.0f));
 
 		/* position */ {
-			glEnableVertexAttribArray(gl.shader.position_location);
-			glVertexAttribPointer(gl.shader.position_location,
-					3, GL_FLOAT,
-					GL_FALSE,
-					sizeof(vertex_data_s), reinterpret_cast<GLvoid const *>(offsetof(vertex_data_s, pos))
-			);
+			gl.object->set_attribute_to_position(gl.shader.position_location);
 		}
 		/* color */ {
-			glEnableVertexAttribArray(gl.shader.color_location);
-			glVertexAttribPointer(gl.shader.color_location,
-					3, GL_FLOAT,
-					GL_FALSE,
-					sizeof(vertex_data_s), reinterpret_cast<GLvoid const *>(offsetof(vertex_data_s, clr))
-			);
+			gl.object->set_attribute_to_normal(gl.shader.color_location);
 		}
 
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-
-		glDeleteBuffers(1, &vertex_data_buffer);
+		update_camera();
 	}
-
-	update_camera();
 }
 
 void Hw2Window::gl_finit() {
@@ -211,29 +178,21 @@ void Hw2Window::gl_finit() {
 
 bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	(void) context;
+	gl.perspective = glm::perspective(
+		/* vertical fov = */ glm::radians(60.0f),
+		/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
+		/* planes       : */ 1.0f, 10000.0f
+	);
 
 	glClearColor(.3, .3, .3, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if (gl.shader.program != 0 && gl.scene.vao != 0) {
-		gl.scene.mvp = glm::perspective(
-			/* vertical fov = */ glm::radians(60.0f),
-			/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
-			/* planes       : */ 1.0f, 10000.0f
-		) * gl.scene.projection * glm::mat4(1.0f);
+	glUseProgram(gl.shader.program);
 
-		glUseProgram(gl.shader.program);
-		glBindVertexArray(gl.scene.vao);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl.scene.elements_buffer);
+	gl.object->draw(gl.shader.mvp_location, gl.perspective * gl.camera);
 
-		glUniformMatrix4fv(gl.shader.mvp_location, 1, GL_FALSE, &gl.scene.mvp[0][0]);
+	glUseProgram(0);
 
-		glDrawElements(GL_TRIANGLES, 6 * 2 * 3, GL_UNSIGNED_SHORT, nullptr);
-
-		glUseProgram(0);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	}
 	glFlush();
 
 	return false;
@@ -247,36 +206,37 @@ static gboolean animate_tick_wrapper(GtkWidget *, GdkFrameClock *clock, gpointer
 void Hw2Window::animate_toggled() {
 	bool state{animate->get_active()};
 	if (state) {
-		animation_state = PENDING;
-		animation_id = gtk_widget_add_tick_callback(GTK_WIDGET(area->gobj()), animate_tick_wrapper, this, nullptr);
+		animation.state = animation.PENDING;
+		animation.id = gtk_widget_add_tick_callback(GTK_WIDGET(area->gobj()), animate_tick_wrapper, this, nullptr);
 	} else {
-		animation_state = STOPPED;
-		gtk_widget_remove_tick_callback(GTK_WIDGET(area->gobj()), animation_id);
+		animation.state = animation.STOPPED;
+		gtk_widget_remove_tick_callback(GTK_WIDGET(area->gobj()), animation.id);
 	}
 }
 
 void Hw2Window::animate_tick(gint64 new_time) {
-	if (animation_state == PENDING) {
-		animation_start_time = new_time;
-		animation_start_angle = gl.scene.angle;
-		animation_state = STARTED;
+	if (animation.state == animation.PENDING) {
+		animation.start_time = new_time;
+		animation.start_angle = gl.angle;
+		animation.state = animation.STARTED;
 		return;
 	}
 
-	gint64 delta{new_time - animation_start_time};
+	gint64 delta{new_time - animation.start_time};
 	double secondsDelta{delta / static_cast<double>(G_USEC_PER_SEC)};
-	gl.scene.angle = fmod(animation_start_angle + secondsDelta * anglePerSecond, 2 * M_PI);
+	gl.angle = fmod(animation.start_angle + secondsDelta * animation.angle_per_second, 2 * M_PI);
 	update_camera();
 	area->queue_render();
 }
 
 void Hw2Window::update_camera() {
-	double t{cos(3 * gl.scene.angle) * M_PI / 6};
-	gl.scene.projection = glm::lookAt(
+	double t{cos(3 * gl.angle) * M_PI / 6};
+	float const r{4};
+	gl.camera = glm::lookAt(
 		/* from = */ glm::vec3(
-			4 * sin(gl.scene.angle) * cos(t),
-			4 * sin(t),
-			4 * cos(gl.scene.angle) * cos(t)
+			r * sin(gl.angle) * cos(t),
+			r * sin(t),
+			r * cos(gl.angle) * cos(t)
 		),
 		/* to   = */ glm::vec3(0.0f, 0.0f, 0.0f),
 		/* up   = */ glm::vec3(0.0f, 1.0f, 0.0f)

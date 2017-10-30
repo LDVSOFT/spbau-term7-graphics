@@ -1,5 +1,7 @@
 #pragma once
 
+#include "scene_object.hpp"
+
 #include <glm/mat4x4.hpp>
 
 #include <gtkmm/builder.h>
@@ -30,27 +32,24 @@ private:
 			GLuint color_location{0};
 		} shader;
 
-		struct {
-			glm::mat4 camera;
-			glm::mat4 projection;
-			glm::mat4 mvp;
+		glm::mat4 camera;
+		glm::mat4 perspective;
 
-			GLuint vao{0};
-			GLuint elements_buffer{0};
-
-			float angle{0};
-		} scene;
+		float angle{0};
+		std::unique_ptr<SceneObject> object;
 	} gl;
 
-	enum {
-		STOPPED,
-		PENDING,
-		STARTED
-	} animation_state{STOPPED};
-	guint animation_id;
-	gint64 animation_start_time;
-	double const anglePerSecond{M_PI / 2};
-	float animation_start_angle;
+	struct {
+		enum {
+			STOPPED,
+			PENDING,
+			STARTED
+		} state{STOPPED};
+		guint id;
+		gint64 start_time;
+		double const angle_per_second{M_PI / 2};
+		float start_angle;
+	} animation;
 
 	void gl_init();
 	void gl_finit();

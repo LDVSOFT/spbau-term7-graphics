@@ -2,6 +2,7 @@
 
 #include <glm/gtx/vector_angle.hpp>
 
+#include <locale>
 #include <cstdio>
 #include <sstream>
 #include <iostream>
@@ -16,14 +17,16 @@ static std::vector<std::string> split_by(std::string const &s, char c) {
 	return result;
 }
 
-object object::load(std::string const &obj) {
+Object Object::load(std::string const &obj) {
+	auto old_locale{std::locale::global(std::locale::classic())};
+
 	std::vector<glm::vec3> v;
 	std::vector<glm::vec3> vn;
 	std::vector<glm::vec2> vt;
 
-	std::map<std::tuple<size_t, size_t, size_t>, size_t> v_ids;
+	std::map<std::tuple<size_t, size_t, size_t>, GLuint> v_ids;
 
-	object result;
+	Object result;
 
 	for (std::string const &line: split_by(obj, '\n')) {
 		if (line.empty() || line[0] == '#')
@@ -39,7 +42,7 @@ object object::load(std::string const &obj) {
 		} else if (type == "vt") {
 			vt.push_back(glm::vec2(stof(tokens[0]), stof(tokens[1])));
 		} else if (type == "f") {
-			std::vector<size_t> verts;
+			std::vector<GLuint> verts;
 			for (auto const &t: tokens) {
 				auto elems(split_by(t, '/'));
 				size_t constexpr bad(-1);
@@ -69,15 +72,16 @@ object object::load(std::string const &obj) {
 			std::cout << "UNKNOWN TYPE " << type << std::endl;
 		}
 	}
+	std::locale::global(old_locale);
 	return result;
 }
 
-void object::recalculate_normals() {
+void Object::recalculate_normals() {
 	std::vector<glm::vec3> new_normals(verticies.size());
 	for (size_t id{0}; id != faces.size(); ++id) {
-		size_t const i{faces[id][0]};
-		size_t const j{faces[id][1]};
-		size_t const k{faces[id][2]};
+		GLuint const i{faces[id][0]};
+		GLuint const j{faces[id][1]};
+		GLuint const k{faces[id][2]};
 		auto const &a{verticies[i].pos};
 		auto const &b{verticies[j].pos};
 		auto const &c{verticies[k].pos};
@@ -91,8 +95,8 @@ void object::recalculate_normals() {
 		verticies[i].norm = glm::normalize(new_normals[i]);
 }
 
-std::ostream &operator<<(std::ostream &s, object const &o) {
-	s << "object: " << o.verticies.size() << " verticies, " << o.faces.size() << " faces.\n";
+std::ostream &operator<<(std::ostream &s, Object const &o) {
+	s << "Object: " << o.verticies.size() << " verticies, " << o.faces.size() << " faces.\n";
 	for (size_t i{0}; i != o.verticies.size(); ++i) {
 		auto const &v{o.verticies[i]};
 		s << "v" << i << ": ";

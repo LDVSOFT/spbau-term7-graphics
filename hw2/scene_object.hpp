@@ -19,8 +19,13 @@ public:
 	SceneObject(Object const &obj);
 	~SceneObject();
 
-	void draw(GLuint mvp_attribute, glm::mat4 const &vp) const;
-	
+	static constexpr GLuint no_attribute = -1;
+	void draw(
+		glm::mat4 const &v, glm::mat4 const &p,
+		GLuint m_attribute, GLuint v_attribute, GLuint p_attribute,
+		GLuint mv_attribute, GLuint mvp_attribute
+	) const;
+
 	void set_attribute_to_position(GLuint attribute) const;
 	void set_attribute_to_normal(GLuint attribute) const;
 	void set_attribute_to_uv(GLuint attribute) const;

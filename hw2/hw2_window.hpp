@@ -27,9 +27,18 @@ private:
 	struct {
 		struct {
 			GLuint program{0};
-			GLuint mvp_location{0};
-			GLuint position_location{0};
-			GLuint color_location{0};
+
+			GLuint m{0};
+			GLuint v{0};
+			GLuint mv{0};
+			GLuint mvp{0};
+
+			GLuint light_position{0};
+			GLuint light_power{0};
+			GLuint light_color{0};
+
+			GLuint vertex_position{0};
+			GLuint vertex_normal{0};
 		} shader;
 
 		glm::mat4 camera;

@@ -143,25 +143,56 @@ void Hw2Window::gl_init() {
 		}
 
 		/* parameters */ {
-			gl.shader.position_location = glGetAttribLocation (gl.shader.program, "vertex_position");
-			gl.shader.color_location    = glGetAttribLocation (gl.shader.program, "vertex_color");
+			/* debug */ {
+				size_t const buffer_size{256};
+				char buffer[buffer_size];
+				GLint count;
 
-			gl.shader.mvp_location      = glGetUniformLocation(gl.shader.program, "mvp");
+				glGetProgramiv(gl.shader.program, GL_ACTIVE_ATTRIBUTES, &count);
+				for (GLint i{0}; i != count; ++i) {
+					GLsizei size, length;
+					GLenum type;
+					glGetActiveAttrib(gl.shader.program, i, buffer_size, &length, &size, &type, buffer);
+					std::cout << "Attrib " << i << " " << buffer << ": type=" << type << " size=" << size << std::endl;
+				}
+				glGetProgramiv(gl.shader.program, GL_ACTIVE_UNIFORMS, &count);
+				for (GLint i{0}; i != count; ++i) {
+					GLsizei size, length;
+					GLenum type;
+					glGetActiveUniform(gl.shader.program, i, buffer_size, &length, &size, &type, buffer);
+					std::cout << "Uniform " << i << " " << buffer << ": type=" << type << " size=" << size << std::endl;
+				}
+			}
+
+			gl.shader.vertex_position = glGetAttribLocation (gl.shader.program, "vertex_position_model");
+			gl.shader.vertex_normal   = glGetAttribLocation (gl.shader.program, "vertex_normal_model");
+
+			gl.shader.m               = glGetUniformLocation(gl.shader.program, "m");
+			std::cout << "m @ " << gl.shader.m << std::endl;
+			gl.shader.v               = glGetUniformLocation(gl.shader.program, "v");
+			gl.shader.mv              = glGetUniformLocation(gl.shader.program, "mv");
+			gl.shader.mvp             = glGetUniformLocation(gl.shader.program, "mvp");
+			std::cout << "mvp @ " << gl.shader.mvp << std::endl;
+
+			gl.shader.light_position  = glGetUniformLocation(gl.shader.program, "light_world");
+			gl.shader.light_color     = glGetUniformLocation(gl.shader.program, "light_color");
+			gl.shader.light_power     = glGetUniformLocation(gl.shader.program, "light_power");
 		}
 	}
 
 	/* scene */ {
 		::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
 		obj.recalculate_normals();
-		std::cout << obj << std::endl;
 		gl.object = std::make_unique<SceneObject>(obj);
-		gl.object->position = glm::scale(glm::vec3(10.0f));
+		//gl.object->position = glm::scale(glm::vec3(10.0f));
 
 		/* position */ {
-			gl.object->set_attribute_to_position(gl.shader.position_location);
+			gl.object->set_attribute_to_position(gl.shader.vertex_position);
+//			check("Hw2Window::gl_init set position attribute");
 		}
 		/* color */ {
-			gl.object->set_attribute_to_normal(gl.shader.color_location);
+			gl.object->set_attribute_to_normal(gl.shader.vertex_normal);
+//			check("Hw2Window::gl_init set normal attribute");
 		}
 
 		update_camera();
@@ -178,18 +209,32 @@ void Hw2Window::gl_finit() {
 
 bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	(void) context;
+//	check("Hw2Window::gl_render before...");
+
 	gl.perspective = glm::perspective(
 		/* vertical fov = */ glm::radians(60.0f),
 		/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
-		/* planes       : */ 1.0f, 10000.0f
+		/* planes       : */ .01f, 1000.0f
 	);
 
-	glClearColor(.3, .3, .3, 1.0);
+	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(gl.shader.program);
+//	check("Hw2Window::gl_render use program");
 
-	gl.object->draw(gl.shader.mvp_location, gl.perspective * gl.camera);
+	glUniform3f(gl.shader.light_color, 1.0f, 1.0f, 1.0f);
+//	check("Hw2Window::gl_render set light color");
+	glUniform3f(gl.shader.light_position, 3.0f, 3.0f, 3.0f);
+//	check("Hw2Window::gl_render set light position");
+	glUniform1f(gl.shader.light_power, 15.0f);
+//	check("Hw2Window::gl_render set light power");
+
+	gl.object->draw(
+		gl.camera, gl.perspective,
+		gl.shader.m, gl.shader.v, /* p_attribute = */ SceneObject::no_attribute,
+		gl.shader.mv, gl.shader.mvp
+	);
 
 	glUseProgram(0);
 
@@ -231,7 +276,7 @@ void Hw2Window::animate_tick(gint64 new_time) {
 
 void Hw2Window::update_camera() {
 	double t{cos(3 * gl.angle) * M_PI / 6};
-	float const r{4};
+	float const r{.4};
 	gl.camera = glm::lookAt(
 		/* from = */ glm::vec3(
 			r * sin(gl.angle) * cos(t),

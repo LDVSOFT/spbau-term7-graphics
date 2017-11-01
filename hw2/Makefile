@@ -11,12 +11,16 @@ endif
 
 # Build:
 
-SRC = hw2_window.cpp hw2_app.cpp hw2_error.cpp main.cpp scene_object.cpp object.cpp
-GEN = hw2_resources.cpp
+SRCDIR=src
+RESDIR=res
+BINDIR=bin
+
+SRC = $(SRCDIR)/hw2_window.cpp $(SRCDIR)/hw2_app.cpp $(SRCDIR)/hw2_error.cpp $(SRCDIR)/main.cpp $(SRCDIR)/scene_object.cpp $(SRCDIR)/object.cpp
+GEN = $(SRCDIR)/hw2_resources.cpp
 BIN = hw2
 
 SRCS = $(GEN) $(SRC)
-OBJS = $(SRCS:.cpp=.o)
+OBJS = $(SRCS:$(SRCDIR)/%.cpp=$(BINDIR)/%.o)
 
 .PHONY: all
 all: $(BIN)
@@ -24,16 +28,16 @@ all: $(BIN)
 CXX = g++ -std=c++14 -Wall -Wextra -Werror -Wno-deprecated -g
 PKGCONFIG = pkg-config
 LIBS = gtkmm-3.0 gio-2.0 epoxy
-CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS) | sed 's/-I/-isystem/g')
+CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS) | sed 's/-I/-isystem/g') -iquote include/
 LFLAGS = $(shell $(PKGCONFIG) --libs   $(LIBS))
 GLIB_COMPILE_RESOURCES = $(shell $(PKGCONFIG) --variable=glib_compile_resources gio-2.0)
 GLIB_COMPILE_SCHEMAS   = $(shell $(PKGCONFIG) --variable=glib_compile_schemas gio-2.0)
 
-$(GEN): hw2.gresource.xml $(shell $(GLIB_COMPILE_RESOURCES) --sourcedir=. --generate-dependencies hw2.gresource.xml)
+$(GEN): $(RESDIR)/hw2.gresource.xml $(shell $(GLIB_COMPILE_RESOURCES) --sourcedir=$(RESDIR) --generate-dependencies $(RESDIR)/hw2.gresource.xml)
 	$(VERBinfo) '\tGLIB RESOURCES\t'$@
-	$(VERBpref)$(GLIB_COMPILE_RESOURCES) --sourcedir=. --target=$@ --generate-source $<
+	$(VERBpref)$(GLIB_COMPILE_RESOURCES) --sourcedir=$(RESDIR) --target=$@ --generate-source $<
 
-%.o: %.cpp
+$(BINDIR)/%.o: $(SRCDIR)/%.cpp | bin
 	$(VERBinfo) '\tCXX\t'$@
 	$(VERBpref)$(CXX) $(CFLAGS) -c $< -o $@
 
@@ -41,10 +45,14 @@ $(BIN): $(OBJS)
 	$(VERBinfo) '\tLINK\t'$@
 	$(VERBpref)$(CXX) $(OBJS) $(LFLAGS) -o $@
 
+$(BINDIR):
+	$(VERBinfo) '\tMKDIR\t'$@
+	$(VERBpref)mkdir $@
+
 .PHONY: clean mrpropper
 clean:
 	$(VERBinfo) '\tCLEAN\t' $(GEN) $(OBJS) $(BIN) Makefile.deps
-	$(VERBpref)rm -f $(GEN) $(OBJS) $(BIN) Makefile.deps
+	$(VERBpref)rm -rf $(GEN) $(OBJS) $(BIN) Makefile.deps $(BINDIR)
 
 mrpropper: clean
 	$(VERBinfo) '\tCLEAN\t' Makefile.dummy
@@ -58,7 +66,8 @@ mrpropper: clean
 .PHONY: Makefile.deps
 Makefile.deps:
 	@$(VERBinfo) '\tDEPS\t'
-	@$(VERBpref)$(CXX) $(CFLAGS) -MM $(SRC) > Makefile.deps
+	@rm -f Makefile.deps
+	$(VERBpref)$(foreach src,$(SRC),$(CXX) $(CFLAGS) -MM $(src) -MT $(src:$(SRCDIR)/%.cpp=$(BINDIR)/%.o) >> Makefile.deps;)
 
 NODEPS=clean mrpropper
 ifeq ($(words $(findstring $(MAKECMDGOALS), $(NODEPS))), 0)

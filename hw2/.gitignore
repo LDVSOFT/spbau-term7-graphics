@@ -1,4 +1,4 @@
-*.o
-/hw2
-/hw2_resources.cpp
-/Makefile.*
+bin/*.o
+hw2
+src/hw2_resources.cpp
+Makefile.*

@@ -1,14 +1,6 @@
 #pragma once
 
-#include <epoxy/gl.h>
-
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
-
-#include <array>
-#include <ostream>
-#include <string>
-#include <vector>
+#include "libs.hpp"
 
 class Object {
 public:

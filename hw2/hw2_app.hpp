@@ -1,10 +1,8 @@
 #pragma once
 
+#include "libs.hpp"
+
 #include "hw2_window.hpp"
-
-#include <gtkmm/application.h>
-
-#include <memory>
 
 class Hw2App: public Gtk::Application {
 private:

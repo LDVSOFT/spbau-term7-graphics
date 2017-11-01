@@ -1,13 +1,6 @@
 #include "hw2_window.hpp"
 #include "hw2_error.hpp"
 
-#include <epoxy/gl.h>
-
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/transform.hpp>
-
-#include <iostream>
-
 using Gdk::GLContext;
 using Gio::Resource;
 using Glib::Bytes;
@@ -274,7 +267,7 @@ void Hw2Window::animate_tick(gint64 new_time) {
 
 void Hw2Window::update_camera() {
 	double t{cos(3 * gl.angle) * M_PI / 6};
-	float const r{.4};
+	float const r{.28};
 	gl.camera = glm::lookAt(
 		/* from = */ glm::vec3(
 			r * sin(gl.angle) * cos(t),

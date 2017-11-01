@@ -1,11 +1,8 @@
 #pragma once
 
+#include "libs.hpp"
+
 #include "object.hpp"
-
-#include <epoxy/gl.h>
-#include <glm/glm.hpp>
-
-#include <set>
 
 class SceneObject {
 private:

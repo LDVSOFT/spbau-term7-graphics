@@ -1,7 +1,5 @@
 #include "scene_object.hpp"
 
-#include <iostream>
-
 [[maybe_unused]]
 static void check(std::string const &name) {
 	GLuint error{glGetError()};

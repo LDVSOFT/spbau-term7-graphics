@@ -24,7 +24,8 @@ all: $(BIN)
 CXX = g++ -std=c++14 -Wall -Wextra -Werror -Wno-deprecated -g
 PKGCONFIG = pkg-config
 LIBS = gtkmm-3.0 gio-2.0 epoxy
-CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS) | sed 's/-I/-isystem/g')
+CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS))
+CFLAGSsys = $(shell echo $(CFLAGS) | sed 's/-I/-isystem/g')
 LFLAGS = $(shell $(PKGCONFIG) --libs   $(LIBS))
 GLIB_COMPILE_RESOURCES = $(shell $(PKGCONFIG) --variable=glib_compile_resources gio-2.0)
 GLIB_COMPILE_SCHEMAS   = $(shell $(PKGCONFIG) --variable=glib_compile_schemas gio-2.0)
@@ -33,9 +34,13 @@ $(GEN): hw2.gresource.xml $(shell $(GLIB_COMPILE_RESOURCES) --sourcedir=. --gene
 	$(VERBinfo) '\tGLIB RESOURCES\t'$@
 	$(VERBpref)$(GLIB_COMPILE_RESOURCES) --sourcedir=. --target=$@ --generate-source $<
 
-%.o: %.cpp
+libs.hpp.gch: libs.hpp
 	$(VERBinfo) '\tCXX\t'$@
 	$(VERBpref)$(CXX) $(CFLAGS) -c $< -o $@
+
+%.o: %.cpp libs.hpp.gch
+	$(VERBinfo) '\tCXX\t'$@
+	$(VERBpref)$(CXX) $(CFLAGSsys) -c $< -o $@
 
 $(BIN): $(OBJS)
 	$(VERBinfo) '\tLINK\t'$@
@@ -43,8 +48,8 @@ $(BIN): $(OBJS)
 
 .PHONY: clean mrpropper
 clean:
-	$(VERBinfo) '\tCLEAN\t' $(GEN) $(OBJS) $(BIN) Makefile.deps
-	$(VERBpref)rm -f $(GEN) $(OBJS) $(BIN) Makefile.deps
+	$(VERBinfo) '\tCLEAN\t' $(GEN) $(OBJS) $(BIN) Makefile.deps libs.hpp.gch
+	$(VERBpref)rm -f $(GEN) $(OBJS) $(BIN) Makefile.deps libs.hpp.gch
 
 mrpropper: clean
 	$(VERBinfo) '\tCLEAN\t' Makefile.dummy
@@ -58,7 +63,8 @@ mrpropper: clean
 .PHONY: Makefile.deps
 Makefile.deps:
 	@$(VERBinfo) '\tDEPS\t'
-	@$(VERBpref)$(CXX) $(CFLAGS) -MM $(SRC) > Makefile.deps
+	@$(VERBpref)$(CXX) $(CFLAGSsys) -MM $(SRC) > Makefile.deps
+	@$(VERBpref)$(CXX) $(CFLAGS) -MM libs.hpp >> Makefile.deps
 
 NODEPS=clean mrpropper
 ifeq ($(words $(findstring $(MAKECMDGOALS), $(NODEPS))), 0)

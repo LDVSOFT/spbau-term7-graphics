@@ -1,19 +1,8 @@
 #pragma once
 
+#include "libs.hpp"
+
 #include "scene_object.hpp"
-
-#include <glm/mat4x4.hpp>
-
-#include <gtkmm/builder.h>
-#include <gtkmm/button.h>
-#include <gtkmm/eventbox.h>
-#include <gtkmm/glarea.h>
-#include <gtkmm/togglebutton.h>
-#include <gtkmm/window.h>
-
-#include <epoxy/gl.h>
-
-#include <memory>
 
 class Hw2Window: public Gtk::Window {
 private:

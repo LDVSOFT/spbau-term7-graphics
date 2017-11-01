@@ -1,13 +1,5 @@
 #include "object.hpp"
 
-#include <glm/gtx/vector_angle.hpp>
-
-#include <locale>
-#include <cstdio>
-#include <sstream>
-#include <iostream>
-#include <map>
-
 static std::vector<std::string> split_by(std::string const &s, char c) {
 	std::istringstream stream(s);
 	std::string elem;

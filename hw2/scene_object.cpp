@@ -61,7 +61,7 @@ void SceneObject::draw(
 	//	check("SceneObject::draw set m");
 	}
 	if (v_attribute != no_attribute) {
-		glUniformMatrix4fv(m_attribute, 1, GL_FALSE, &v[0][0]);
+		glUniformMatrix4fv(v_attribute, 1, GL_FALSE, &v[0][0]);
 	//	check("SceneObject::draw set v");
 	}
 	if (p_attribute != no_attribute) {

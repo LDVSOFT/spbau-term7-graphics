@@ -168,11 +168,9 @@ void Hw2Window::gl_init() {
 			gl.shader.vertex_normal   = glGetAttribLocation (gl.shader.program, "vertex_normal_model");
 
 			gl.shader.m               = glGetUniformLocation(gl.shader.program, "m");
-			std::cout << "m @ " << gl.shader.m << std::endl;
 			gl.shader.v               = glGetUniformLocation(gl.shader.program, "v");
 			gl.shader.mv              = glGetUniformLocation(gl.shader.program, "mv");
 			gl.shader.mvp             = glGetUniformLocation(gl.shader.program, "mvp");
-			std::cout << "mvp @ " << gl.shader.mvp << std::endl;
 
 			gl.shader.light_position  = glGetUniformLocation(gl.shader.program, "light_world");
 			gl.shader.light_color     = glGetUniformLocation(gl.shader.program, "light_color");
@@ -280,10 +278,10 @@ void Hw2Window::update_camera() {
 	gl.camera = glm::lookAt(
 		/* from = */ glm::vec3(
 			r * sin(gl.angle) * cos(t),
-			r * sin(t),
+			r * sin(t) + 0.1,
 			r * cos(gl.angle) * cos(t)
 		),
-		/* to   = */ glm::vec3(0.0f, 0.0f, 0.0f),
+		/* to   = */ glm::vec3(0.0f, 0.1f, 0.0f),
 		/* up   = */ glm::vec3(0.0f, 1.0f, 0.0f)
 	);
 }

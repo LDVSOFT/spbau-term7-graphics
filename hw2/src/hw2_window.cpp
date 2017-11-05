@@ -51,7 +51,7 @@ Hw2Window::Hw2Window(
 	area->set_has_depth_buffer();
 
 	area->signal_realize().connect(sigc::mem_fun(*this, &Hw2Window::gl_init));
-	area->signal_unrealize().connect(sigc::mem_fun(*this, &Hw2Window::gl_finit));
+	area->signal_unrealize().connect(sigc::mem_fun(*this, &Hw2Window::gl_finit), false);
 	area->signal_render().connect(sigc::mem_fun(*this, &Hw2Window::gl_render));
 
 	animate->signal_toggled().connect(sigc::mem_fun(*this, &Hw2Window::animate_toggled));
@@ -198,11 +198,11 @@ void Hw2Window::gl_init() {
 }
 
 void Hw2Window::gl_finit() {
-	std::cout << "GL finit" << std::endl;
 	area->make_current();
 	if (area->has_error())
 		return;
-	std::cout << "GL actual finit" << std::endl;
+	gl.object = nullptr;
+	glDeleteProgram(gl.shader.program);
 }
 
 bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {

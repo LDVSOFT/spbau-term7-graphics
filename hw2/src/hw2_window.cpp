@@ -76,105 +76,29 @@ void Hw2Window::gl_init() {
 	}
 
 	/* shaders */ {
-		auto create_shader{[&,this](GLenum type, std::string const &path) -> GLuint {
-			char const *source;
-			size_t source_size;
-			std::tie(source, source_size) = load_resource(path);
-
-			GLuint shader{glCreateShader(type)};
-			/* meh */ {
-				auto size{static_cast<GLint>(source_size)};
-				glShaderSource(shader, 1, &source, &size);
-			}
-			glCompileShader(shader);
-
-			GLint status;
-			glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-			if (status == GL_FALSE) {
-				GLint length;
-				glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-				std::string error_string(length + 1, '\0');
-				glGetShaderInfoLog(shader, length, nullptr, &error_string[0]);
-
-				Error error(hw2_error_quark, 0, error_string);
-				area->set_error(error);
-
-				glDeleteShader(shader);
-				return 0;
-			}
-
-			return shader;
-		}};
-
-		GLuint vertex{create_shader(GL_VERTEX_SHADER, "/net/ldvsoft/spbau/gl/hw2_vertex.glsl")};
-		if (vertex == 0)
-			return;
-		GLuint fragment{create_shader(GL_FRAGMENT_SHADER, "/net/ldvsoft/spbau/gl/hw2_fragment.glsl")};
-		if (fragment == 0) {
-			glDeleteShader(vertex);
-			return;
-		}
-
-		gl.shader.program = glCreateProgram();
-		if (gl.shader.program == 0)
-			return;
-		glAttachShader(gl.shader.program, vertex);
-		glAttachShader(gl.shader.program, fragment);
-		glLinkProgram(gl.shader.program);
-		glDetachShader(gl.shader.program, fragment);
-		glDeleteShader(fragment);
-		glDetachShader(gl.shader.program, vertex);
-		glDeleteShader(vertex);
-
-		GLint status;
-		glGetProgramiv(gl.shader.program, GL_LINK_STATUS, &status);
-		if (status == GL_FALSE) {
-			GLint length;
-			glGetProgramiv(gl.shader.program, GL_INFO_LOG_LENGTH, &length);
-			std::string error_string(length + 1, '\0');
-			glGetProgramInfoLog(gl.shader.program, length, nullptr, &error_string[0]);
-
+		std::string vertex(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/hw2_vertex.glsl")));
+		std::string fragment(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/hw2_fragment.glsl")));
+		std::string error_string;
+		gl.program = Program::build_program({{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}, error_string);
+		if (gl.program == nullptr) {
 			Error error(hw2_error_quark, 0, error_string);
 			area->set_error(error);
 
-			glDeleteProgram(gl.shader.program);
-			gl.shader.program = 0;
 			return;
 		}
 
 		/* parameters */ {
-			/* debug */ {
-				size_t const buffer_size{256};
-				char buffer[buffer_size];
-				GLint count;
+			gl.locations.vertex_position = gl.program->get_attribute("vertex_position_model");
+			gl.locations.vertex_normal   = gl.program->get_attribute("vertex_normal_model");
 
-				glGetProgramiv(gl.shader.program, GL_ACTIVE_ATTRIBUTES, &count);
-				for (GLint i{0}; i != count; ++i) {
-					GLsizei size, length;
-					GLenum type;
-					glGetActiveAttrib(gl.shader.program, i, buffer_size, &length, &size, &type, buffer);
-					std::cout << "Attrib " << i << " " << buffer << ": type=" << type << " size=" << size << std::endl;
-				}
-				glGetProgramiv(gl.shader.program, GL_ACTIVE_UNIFORMS, &count);
-				for (GLint i{0}; i != count; ++i) {
-					GLsizei size, length;
-					GLenum type;
-					glGetActiveUniform(gl.shader.program, i, buffer_size, &length, &size, &type, buffer);
-					std::cout << "Uniform " << i << " " << buffer << ": type=" << type << " size=" << size << std::endl;
-				}
-			}
+			gl.locations.m               = gl.program->get_uniform  ("m");
+			gl.locations.v               = gl.program->get_uniform  ("v");
+			gl.locations.mv              = gl.program->get_uniform  ("mv");
+			gl.locations.mvp             = gl.program->get_uniform  ("mvp");
 
-			gl.shader.vertex_position = glGetAttribLocation (gl.shader.program, "vertex_position_model");
-			gl.shader.vertex_normal   = glGetAttribLocation (gl.shader.program, "vertex_normal_model");
-
-			gl.shader.m               = glGetUniformLocation(gl.shader.program, "m");
-			gl.shader.v               = glGetUniformLocation(gl.shader.program, "v");
-			gl.shader.mv              = glGetUniformLocation(gl.shader.program, "mv");
-			gl.shader.mvp             = glGetUniformLocation(gl.shader.program, "mvp");
-
-			gl.shader.light_position  = glGetUniformLocation(gl.shader.program, "light_world");
-			gl.shader.light_color     = glGetUniformLocation(gl.shader.program, "light_color");
-			gl.shader.light_power     = glGetUniformLocation(gl.shader.program, "light_power");
+			gl.locations.light_position  = gl.program->get_uniform  ("light_world");
+			gl.locations.light_color     = gl.program->get_uniform  ("light_color");
+			gl.locations.light_power     = gl.program->get_uniform  ("light_power");
 		}
 	}
 
@@ -185,16 +109,18 @@ void Hw2Window::gl_init() {
 		//gl.object->position = glm::scale(glm::vec3(10.0f));
 
 		/* position */ {
-			gl.object->set_attribute_to_position(gl.shader.vertex_position);
+			gl.object->set_attribute_to_position(gl.locations.vertex_position);
 //			check("Hw2Window::gl_init set position attribute");
 		}
 		/* color */ {
-			gl.object->set_attribute_to_normal(gl.shader.vertex_normal);
+			gl.object->set_attribute_to_normal(gl.locations.vertex_normal);
 //			check("Hw2Window::gl_init set normal attribute");
 		}
 
 		update_camera();
 	}
+
+	std::cout << "Rendering on " << glGetString(GL_RENDERER) << std::endl;
 }
 
 void Hw2Window::gl_finit() {
@@ -202,7 +128,7 @@ void Hw2Window::gl_finit() {
 	if (area->has_error())
 		return;
 	gl.object = nullptr;
-	glDeleteProgram(gl.shader.program);
+	gl.program = nullptr;
 }
 
 bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
@@ -218,23 +144,21 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glUseProgram(gl.shader.program);
+	gl.program->use();
 //	check("Hw2Window::gl_render use program");
 
-	glUniform3f(gl.shader.light_color, 1.0f, 1.0f, 1.0f);
+	glUniform3f(gl.locations.light_color, 1.0f, 1.0f, 1.0f);
 //	check("Hw2Window::gl_render set light color");
-	glUniform3f(gl.shader.light_position, 3.0f, 3.0f, 3.0f);
+	glUniform3f(gl.locations.light_position, 3.0f, 3.0f, 3.0f);
 //	check("Hw2Window::gl_render set light position");
-	glUniform1f(gl.shader.light_power, 15.0f);
+	glUniform1f(gl.locations.light_power, 15.0f);
 //	check("Hw2Window::gl_render set light power");
 
 	gl.object->draw(
 		gl.camera, gl.perspective,
-		gl.shader.m, gl.shader.v, /* p_attribute = */ SceneObject::no_attribute,
-		gl.shader.mv, gl.shader.mvp
+		gl.locations.m, gl.locations.v, /* p_attribute = */ SceneObject::no_attribute,
+		gl.locations.mv, gl.locations.mvp
 	);
-
-	glUseProgram(0);
 
 	glFlush();
 

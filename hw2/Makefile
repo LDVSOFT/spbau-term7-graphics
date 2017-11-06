@@ -15,7 +15,14 @@ SRCDIR=src
 RESDIR=res
 BINDIR=bin
 
-SRC = $(SRCDIR)/hw2_window.cpp $(SRCDIR)/hw2_app.cpp $(SRCDIR)/hw2_error.cpp $(SRCDIR)/main.cpp $(SRCDIR)/scene_object.cpp $(SRCDIR)/object.cpp
+SRC = \
+	$(SRCDIR)/hw2_window.cpp \
+	$(SRCDIR)/hw2_app.cpp \
+	$(SRCDIR)/hw2_error.cpp \
+	$(SRCDIR)/main.cpp \
+	$(SRCDIR)/scene_object.cpp \
+	$(SRCDIR)/object.cpp \
+	$(SRCDIR)/program.cpp
 GEN = $(SRCDIR)/hw2_resources.cpp
 BIN = hw2
 

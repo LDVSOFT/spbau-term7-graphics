@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scene_object.hpp"
+#include "program.hpp"
 
 #include <glm/mat4x4.hpp>
 
@@ -26,8 +27,6 @@ private:
 
 	struct {
 		struct {
-			GLuint program{0};
-
 			GLuint m{0};
 			GLuint v{0};
 			GLuint mv{0};
@@ -39,7 +38,8 @@ private:
 
 			GLuint vertex_position{0};
 			GLuint vertex_normal{0};
-		} shader;
+		} locations;
+		std::unique_ptr<Program> program;
 
 		glm::mat4 camera;
 		glm::mat4 perspective;

@@ -83,7 +83,7 @@ endif
 
 # clean on changed Makefile trick
 Makefile.dummy: Makefile
-	@$(VERBinfo) '\tFORCE CLEAN\t(Makefile updated)'
+	@$(VERBinfo) '\tFORCING CLEAN\t(Makefile updated)'
 	@touch $@
-	@$(MAKE) --print-directory clean
+	@$(MAKE) --no-print-directory clean
 -include Makefile.dummy

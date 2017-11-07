@@ -2,3 +2,4 @@ bin/*.o
 hw2
 src/hw2_resources.cpp
 Makefile.*
+*.trace

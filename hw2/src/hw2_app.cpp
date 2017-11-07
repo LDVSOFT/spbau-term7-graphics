@@ -8,15 +8,17 @@ RefPtr<Hw2App> Hw2App::create(int argc, char *argv[]) {
 }
 
 Hw2App::Hw2App(int argc, char *argv[]):
-	Application(argc, argv, "net.ldvsoft.spbau.gl"),
-	window(nullptr) {}
+	Application(argc, argv, "net.ldvsoft.spbau.gl") {}
 
 Hw2App::~Hw2App() = default;
 
 void Hw2App::on_activate() {
 	Application::on_activate();
 	
-	window = Hw2Window::create();
+	auto window{Hw2Window::create()};
 	window->show();
 	add_window(*window);
+
+	// FIXME HACK here, need to find out a better way...
+	window.release();
 }

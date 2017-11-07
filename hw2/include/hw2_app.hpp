@@ -8,8 +8,6 @@
 
 class Hw2App: public Gtk::Application {
 private:
-	std::unique_ptr<Hw2Window> window;
-
 	Hw2App(int argc, char *argv[]);
 	virtual ~Hw2App() override;
 

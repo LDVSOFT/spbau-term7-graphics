@@ -25,7 +25,7 @@ private:
 	Gtk::ToggleButton *animate;
 	Gtk::Button *reset;
 
-	struct {
+	struct _gl {
 		struct {
 			GLuint m{0};
 			GLuint v{0};
@@ -40,6 +40,9 @@ private:
 			GLuint vertex_normal{0};
 		} locations;
 		std::unique_ptr<Program> program;
+
+		static GLsizei constexpr depth_buffer_size{2048};
+		GLuint framebuffer;
 
 		glm::mat4 camera;
 		glm::mat4 perspective;

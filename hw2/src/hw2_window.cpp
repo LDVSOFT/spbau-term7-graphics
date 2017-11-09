@@ -102,6 +102,37 @@ void Hw2Window::gl_init() {
 		}
 	}
 
+	/* framebuffer */ {
+		glGenFramebuffers(1, &gl.framebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, gl.framebuffer);
+
+		GLuint depth_texture;
+		glGenTextures(1, &depth_texture);
+		glBindTexture(GL_TEXTURE_2D, depth_texture);
+		glTexImage2D(
+			GL_TEXTURE_2D, /* mipmap_level = */ 0,
+			GL_DEPTH_COMPONENT16,
+			gl.depth_buffer_size, gl.depth_buffer_size, 0,
+			GL_DEPTH_COMPONENT, GL_FLOAT,
+			nullptr
+		);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_texture, /* mipmap_level = */ 0);
+		glDrawBuffer(GL_NONE);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			area->set_error(Error(hw2_error_quark, 0, "Failed to create framebuffer."));
+			glDeleteFramebuffers(1, &gl.framebuffer);
+			return;
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
 	/* scene */ {
 		::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
 		obj.recalculate_normals();
@@ -160,6 +191,7 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 		gl.locations.mv, gl.locations.mvp
 	);
 
+	glUseProgram(0);
 	glFlush();
 
 	return false;

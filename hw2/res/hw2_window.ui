@@ -2,6 +2,12 @@
 <!-- Generated with glade 3.20.0 -->
 <interface>
 	<requires lib="gtk+" version="3.16"/>
+	<object class="GtkListStore" id="display_mode_list_store">
+		<columns>
+			<!-- column-name name -->
+			<column type="gchararray"/>
+		</columns>
+	</object>
 	<object class="GtkApplicationWindow" id="Hw2Window">
 		<property name="can_focus">False</property>
 		<property name="border_width">6</property>
@@ -38,6 +44,50 @@
 					</packing>
 				</child>
 				<child>
+					<object class="GtkBox">
+						<property name="visible">True</property>
+						<property name="can_focus">False</property>
+						<property name="spacing">6</property>
+						<child>
+							<object class="GtkLabel">
+								<property name="visible">True</property>
+								<property name="can_focus">False</property>
+								<property name="label" translatable="yes">Display mode</property>
+							</object>
+							<packing>
+								<property name="expand">False</property>
+								<property name="fill">True</property>
+								<property name="position">0</property>
+							</packing>
+						</child>
+						<child>
+							<object class="GtkComboBox" id="display_mode_combobox">
+								<property name="visible">True</property>
+								<property name="can_focus">False</property>
+								<property name="model">display_mode_list_store</property>
+								<property name="active">0</property>
+								<property name="active_id">name</property>
+								<child>
+									<object class="GtkCellRendererText"/>
+									<attributes>
+										<attribute name="text">0</attribute>
+									</attributes>
+								</child>
+							</object>
+							<packing>
+								<property name="expand">True</property>
+								<property name="fill">True</property>
+								<property name="position">1</property>
+							</packing>
+						</child>
+					</object>
+					<packing>
+						<property name="expand">False</property>
+						<property name="fill">True</property>
+						<property name="position">1</property>
+					</packing>
+				</child>
+				<child>
 					<object class="GtkToggleButton" id="animate_toggle">
 						<property name="label" translatable="yes">Animate</property>
 						<property name="visible">True</property>
@@ -47,7 +97,7 @@
 					<packing>
 						<property name="expand">False</property>
 						<property name="fill">True</property>
-						<property name="position">1</property>
+						<property name="position">2</property>
 					</packing>
 				</child>
 				<child>

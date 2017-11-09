@@ -7,8 +7,10 @@
 
 #include <gtkmm/builder.h>
 #include <gtkmm/button.h>
+#include <gtkmm/combobox.h>
 #include <gtkmm/eventbox.h>
 #include <gtkmm/glarea.h>
+#include <gtkmm/liststore.h>
 #include <gtkmm/togglebutton.h>
 #include <gtkmm/window.h>
 
@@ -23,7 +25,15 @@ private:
 	Gtk::GLArea *area;
 	Gtk::EventBox *area_eventbox;
 	Gtk::ToggleButton *animate;
+	Gtk::ComboBox *display_mode_combobox;
 	Gtk::Button *reset;
+
+	Glib::RefPtr<Gtk::ListStore> display_mode_list_store;
+
+	enum display_mode_t {
+		SCENE,
+		SHADOWMAP
+	};
 
 	struct _gl {
 		struct {

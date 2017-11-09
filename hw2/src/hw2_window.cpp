@@ -46,9 +46,26 @@ Hw2Window::Hw2Window(
 	builder->get_widget("draw_area", area);
 	builder->get_widget("draw_area_eventbox", area_eventbox);
 	builder->get_widget("animate_toggle", animate);
+	builder->get_widget("display_mode_combobox", display_mode_combobox);
 	builder->get_widget("reset_button", reset);
 
+	display_mode_list_store = RefPtr<Gtk::ListStore>::cast_dynamic(builder->get_object("display_mode_list_store"));
+
 	area->set_has_depth_buffer();
+	/* options */ {
+		/* scene */ {
+			static_assert(SCENE == 0);
+			auto &row{*display_mode_list_store->append()};
+			row.set_value<Glib::ustring>(0, "Scene");
+		}
+		/* shadowmap */ {
+			static_assert(SHADOWMAP == 1);
+			auto &row{*display_mode_list_store->append()};
+			row.set_value<Glib::ustring>(0, "Shadowmap");
+		}
+
+		display_mode_combobox->set_active(SCENE);
+	}
 
 	area->signal_realize().connect(sigc::mem_fun(*this, &Hw2Window::gl_init));
 	area->signal_unrealize().connect(sigc::mem_fun(*this, &Hw2Window::gl_finit), false);

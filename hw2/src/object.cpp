@@ -13,7 +13,8 @@ static std::vector<std::string> split_by(std::string const &s, char c) {
 	std::string elem;
 	std::vector<std::string> result;
 	while (std::getline(stream, elem, c))
-		result.push_back(elem);
+		if (elem.size() > 0)
+			result.push_back(elem);
 	return result;
 }
 

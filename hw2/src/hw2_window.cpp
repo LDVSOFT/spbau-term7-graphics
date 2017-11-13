@@ -72,6 +72,7 @@ Hw2Window::Hw2Window(
 	area->signal_render().connect(sigc::mem_fun(*this, &Hw2Window::gl_render));
 
 	animate->signal_toggled().connect(sigc::mem_fun(*this, &Hw2Window::animate_toggled));
+	reset->signal_clicked().connect(sigc::mem_fun(*this, &Hw2Window::reset_clicked));
 }
 
 Hw2Window::~Hw2Window() = default;
@@ -116,6 +117,10 @@ void Hw2Window::gl_init() {
 			gl.locations.light_position  = gl.program->get_uniform  ("light_world");
 			gl.locations.light_color     = gl.program->get_uniform  ("light_color");
 			gl.locations.light_power     = gl.program->get_uniform  ("light_power");
+
+			gl.locations.sun_direction   = gl.program->get_uniform  ("tosun_world");
+			gl.locations.sun_color       = gl.program->get_uniform  ("sun_color");
+			gl.locations.sun_power       = gl.program->get_uniform  ("sun_power");
 		}
 	}
 
@@ -151,18 +156,22 @@ void Hw2Window::gl_init() {
 	}
 
 	/* scene */ {
-		::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
-		obj.recalculate_normals();
-		gl.object = std::make_unique<SceneObject>(obj);
-		//gl.object->position = glm::scale(glm::vec3(10.0f));
+		/* rabbit */ {
+			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
+			obj.recalculate_normals();
+			gl.object = std::make_unique<SceneObject>(obj);
 
-		/* position */ {
 			gl.object->set_attribute_to_position(gl.locations.vertex_position);
-//			check("Hw2Window::gl_init set position attribute");
-		}
-		/* color */ {
 			gl.object->set_attribute_to_normal(gl.locations.vertex_normal);
-//			check("Hw2Window::gl_init set normal attribute");
+		}
+
+		/* base plane */ {
+			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/cube.obj")))};
+			obj.recalculate_normals();
+			gl.base_plane = std::make_unique<SceneObject>(obj);
+
+			gl.base_plane->set_attribute_to_position(gl.locations.vertex_position);
+			gl.base_plane->set_attribute_to_normal(gl.locations.vertex_normal);
 		}
 
 		update_camera();
@@ -195,14 +204,23 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	gl.program->use();
 //	check("Hw2Window::gl_render use program");
 
-	glUniform3f(gl.locations.light_color, 1.0f, 1.0f, 1.0f);
+	glUniform3f(gl.locations.light_color, 0.0f, 1.0f, 1.0f);
 //	check("Hw2Window::gl_render set light color");
 	glUniform3f(gl.locations.light_position, 3.0f, 3.0f, 3.0f);
 //	check("Hw2Window::gl_render set light position");
 	glUniform1f(gl.locations.light_power, 15.0f);
 //	check("Hw2Window::gl_render set light power");
 
+	glUniform3f(gl.locations.sun_color, 1.0f, 0.0f, 0.0f);
+	glUniform3f(gl.locations.sun_direction, -3.0f, 3.0f, -3.0f);
+	glUniform1f(gl.locations.sun_power, 1.0f);
+
 	gl.object->draw(
+		gl.camera, gl.perspective,
+		gl.locations.m, gl.locations.v, /* p_attribute = */ SceneObject::no_attribute,
+		gl.locations.mv, gl.locations.mvp
+	);
+	gl.base_plane->draw(
 		gl.camera, gl.perspective,
 		gl.locations.m, gl.locations.v, /* p_attribute = */ SceneObject::no_attribute,
 		gl.locations.mv, gl.locations.mvp
@@ -230,6 +248,13 @@ void Hw2Window::animate_toggled() {
 	}
 }
 
+void Hw2Window::reset_clicked() {
+	gl.angle = 0;
+	if (animation.state == animation.STARTED)
+		animation.state = animation.PENDING;
+	update_camera();
+}
+
 void Hw2Window::animate_tick(gint64 new_time) {
 	if (animation.state == animation.PENDING) {
 		animation.start_time = new_time;
@@ -242,11 +267,10 @@ void Hw2Window::animate_tick(gint64 new_time) {
 	double secondsDelta{delta / static_cast<double>(G_USEC_PER_SEC)};
 	gl.angle = fmod(animation.start_angle + secondsDelta * animation.angle_per_second, 2 * M_PI);
 	update_camera();
-	area->queue_render();
 }
 
 void Hw2Window::update_camera() {
-	double t{cos(3 * gl.angle) * M_PI / 6};
+	double t{cos(3 * gl.angle) * M_PI / 12 + M_PI / 8};
 	float const r{.4};
 	gl.camera = glm::lookAt(
 		/* from = */ glm::vec3(
@@ -257,4 +281,5 @@ void Hw2Window::update_camera() {
 		/* to   = */ glm::vec3(0.0f, 0.1f, 0.0f),
 		/* up   = */ glm::vec3(0.0f, 1.0f, 0.0f)
 	);
+	area->queue_render();
 }

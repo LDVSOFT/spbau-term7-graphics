@@ -46,6 +46,10 @@ private:
 			GLuint light_power{0};
 			GLuint light_color{0};
 
+			GLuint sun_direction{0};
+			GLuint sun_power{0};
+			GLuint sun_color{0};
+
 			GLuint vertex_position{0};
 			GLuint vertex_normal{0};
 		} locations;
@@ -58,7 +62,7 @@ private:
 		glm::mat4 perspective;
 
 		float angle{0};
-		std::unique_ptr<SceneObject> object;
+		std::unique_ptr<SceneObject> object, base_plane;
 	} gl;
 
 	struct {
@@ -79,6 +83,7 @@ private:
 
 	void animate_toggled();
 	void update_camera();
+	void reset_clicked();
 
 public:
 	static std::unique_ptr<Hw2Window> create();

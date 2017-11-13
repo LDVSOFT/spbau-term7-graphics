@@ -58,8 +58,13 @@ Hw2Window::Hw2Window(
 			auto &row{*display_mode_list_store->append()};
 			row.set_value<Glib::ustring>(0, "Scene");
 		}
+		/* scene_from_sum */ {
+			static_assert(SCENE_FROM_SUN == 1);
+			auto &row{*display_mode_list_store->append()};
+			row.set_value<Glib::ustring>(0, "Scene (from sun)");
+		}
 		/* shadowmap */ {
-			static_assert(SHADOWMAP == 1);
+			static_assert(SHADOWMAP == 2);
 			auto &row{*display_mode_list_store->append()};
 			row.set_value<Glib::ustring>(0, "Shadowmap");
 		}
@@ -73,6 +78,16 @@ Hw2Window::Hw2Window(
 
 	animate->signal_toggled().connect(sigc::mem_fun(*this, &Hw2Window::animate_toggled));
 	reset->signal_clicked().connect(sigc::mem_fun(*this, &Hw2Window::reset_clicked));
+	display_mode_combobox->signal_changed().connect(sigc::mem_fun(*this, &Hw2Window::display_mode_changed));
+
+	gl.light_position = glm::vec3(5, 3, 5);
+	gl.light_color = glm::vec3(0, 0, 1);
+	gl.light_power = 20;
+
+	gl.sun_position = glm::vec3(-.1, .1, -.1);
+	gl.sun_color = glm::vec3(1, 0, 0);
+	gl.sun_power = 1;
+	gl.sun_view_range = .3;
 }
 
 Hw2Window::~Hw2Window() = default;
@@ -94,33 +109,30 @@ void Hw2Window::gl_init() {
 	}
 
 	/* shaders */ {
-		std::string vertex(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/hw2_vertex.glsl")));
-		std::string fragment(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/hw2_fragment.glsl")));
-		std::string error_string;
-		gl.program = Program::build_program({{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}, error_string);
-		if (gl.program == nullptr) {
-			Error error(hw2_error_quark, 0, error_string);
-			area->set_error(error);
+		/* scene */ {
+			std::string vertex(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/scene_vertex.glsl")));
+			std::string fragment(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/scene_fragment.glsl")));
+			std::string error_string;
+			gl.scene_program = Program::build_program({{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}, error_string);
+			if (gl.scene_program == nullptr) {
+				Error error(hw2_error_quark, 0, error_string);
+				area->set_error(error);
 
-			return;
+				return;
+			}
 		}
 
-		/* parameters */ {
-			gl.locations.vertex_position = gl.program->get_attribute("vertex_position_model");
-			gl.locations.vertex_normal   = gl.program->get_attribute("vertex_normal_model");
+		/* shadowmap */ {
+			std::string vertex(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/shadowmap_vertex.glsl")));
+			std::string fragment(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/shadowmap_fragment.glsl")));
+			std::string error_string;
+			gl.shadowmap_program = Program::build_program({{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}, error_string);
+			if (gl.shadowmap_program == nullptr) {
+				Error error(hw2_error_quark, 0, error_string);
+				area->set_error(error);
 
-			gl.locations.m               = gl.program->get_uniform  ("m");
-			gl.locations.v               = gl.program->get_uniform  ("v");
-			gl.locations.mv              = gl.program->get_uniform  ("mv");
-			gl.locations.mvp             = gl.program->get_uniform  ("mvp");
-
-			gl.locations.light_position  = gl.program->get_uniform  ("light_world");
-			gl.locations.light_color     = gl.program->get_uniform  ("light_color");
-			gl.locations.light_power     = gl.program->get_uniform  ("light_power");
-
-			gl.locations.sun_direction   = gl.program->get_uniform  ("tosun_world");
-			gl.locations.sun_color       = gl.program->get_uniform  ("sun_color");
-			gl.locations.sun_power       = gl.program->get_uniform  ("sun_power");
+				return;
+			}
 		}
 	}
 
@@ -160,21 +172,13 @@ void Hw2Window::gl_init() {
 			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
 			obj.recalculate_normals();
 			gl.object = std::make_unique<SceneObject>(obj);
-
-			gl.object->set_attribute_to_position(gl.locations.vertex_position);
-			gl.object->set_attribute_to_normal(gl.locations.vertex_normal);
 		}
 
 		/* base plane */ {
-			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/cube.obj")))};
+			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/plane.obj")))};
 			obj.recalculate_normals();
 			gl.base_plane = std::make_unique<SceneObject>(obj);
-
-			gl.base_plane->set_attribute_to_position(gl.locations.vertex_position);
-			gl.base_plane->set_attribute_to_normal(gl.locations.vertex_normal);
 		}
-
-		update_camera();
 	}
 
 	std::cout << "Rendering on " << glGetString(GL_RENDERER) << std::endl;
@@ -185,51 +189,128 @@ void Hw2Window::gl_finit() {
 	if (area->has_error())
 		return;
 	gl.object = nullptr;
-	gl.program = nullptr;
+	gl.base_plane = nullptr;
+	gl.scene_program = nullptr;
+	gl.shadowmap_program = nullptr;
 }
 
 bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
-	(void) context;
+	static_cast<void>(context);
 //	check("Hw2Window::gl_render before...");
 
-	gl.perspective = glm::perspective(
-		/* vertical fov = */ glm::radians(60.0f),
-		/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
-		/* planes       : */ .01f, 1000.0f
-	);
+	if (area->has_error())
+		return false;
 
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	gl.program->use();
-//	check("Hw2Window::gl_render use program");
+	switch (display_mode_combobox->get_active_row_number()) {
+	case SCENE:
+		gl_render_scene();
+		break;
+	case SCENE_FROM_SUN:
+		gl_render_scene_from_sun();
+		break;
+	case SHADOWMAP:
+		gl_render_shadowmap();
+		break;
+	}
 
-	glUniform3f(gl.locations.light_color, 0.0f, 1.0f, 1.0f);
-//	check("Hw2Window::gl_render set light color");
-	glUniform3f(gl.locations.light_position, 3.0f, 3.0f, 3.0f);
-//	check("Hw2Window::gl_render set light position");
-	glUniform1f(gl.locations.light_power, 15.0f);
-//	check("Hw2Window::gl_render set light power");
-
-	glUniform3f(gl.locations.sun_color, 1.0f, 0.0f, 0.0f);
-	glUniform3f(gl.locations.sun_direction, -3.0f, 3.0f, -3.0f);
-	glUniform1f(gl.locations.sun_power, 1.0f);
-
-	gl.object->draw(
-		gl.camera, gl.perspective,
-		gl.locations.m, gl.locations.v, /* p_attribute = */ SceneObject::no_attribute,
-		gl.locations.mv, gl.locations.mvp
-	);
-	gl.base_plane->draw(
-		gl.camera, gl.perspective,
-		gl.locations.m, gl.locations.v, /* p_attribute = */ SceneObject::no_attribute,
-		gl.locations.mv, gl.locations.mvp
-	);
-
-	glUseProgram(0);
 	glFlush();
 
 	return false;
+}
+
+void Hw2Window::gl_render_scene() {
+	gl.scene_program->use();
+
+	glUniform3fv(gl.scene_program->get_uniform("light_world"), 1, &gl.light_position[0]);
+	glUniform3fv(gl.scene_program->get_uniform("light_color"), 1, &gl.light_color[0]);
+	glUniform1f (gl.scene_program->get_uniform("light_power"), gl.light_power);
+
+	glUniform3fv(gl.scene_program->get_uniform("tosun_world"), 1, &gl.sun_position[0]);
+	glUniform3fv(gl.scene_program->get_uniform("sun_color"  ), 1, &gl.sun_color[0]);
+	glUniform1f (gl.scene_program->get_uniform("sun_power"), gl.sun_power);
+
+	double t{cos(3 * gl.angle) * M_PI / 12 + M_PI / 8};
+	float const r{.4};
+	glm::mat4 cam_view{glm::lookAt(
+		/* from = */ glm::vec3(
+			r * sin(gl.angle) * cos(t),
+			r * sin(t) + 0.1,
+			r * cos(gl.angle) * cos(t)
+		),
+		/* to   = */ glm::vec3(0.0f, 0.1f, 0.0f),
+		/* up   = */ glm::vec3(0.0f, 1.0f, 0.0f)
+	)};
+	glm::mat4 cam_proj{glm::perspective(
+		/* vertical fov = */ glm::radians(60.0f),
+		/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
+		/* planes       : */ .01f, 1000.0f
+	)};
+	gl_draw_objects(*gl.scene_program, cam_view, cam_proj);
+
+	glUseProgram(0);
+}
+
+void Hw2Window::gl_render_scene_from_sun() {
+	gl.scene_program->use();
+
+	glUniform3fv(gl.scene_program->get_uniform("light_world"), 1, &gl.light_position[0]);
+	glUniform3fv(gl.scene_program->get_uniform("light_color"), 1, &gl.light_color[0]);
+	glUniform1f (gl.scene_program->get_uniform("light_power"), gl.light_power);
+
+	glUniform3fv(gl.scene_program->get_uniform("tosun_world"), 1, &gl.sun_position[0]);
+	glUniform3fv(gl.scene_program->get_uniform("sun_color"  ), 1, &gl.sun_color[0]);
+	glUniform1f (gl.scene_program->get_uniform("sun_power"), gl.sun_power);
+
+	glm::mat4 sun_view{glm::lookAt(
+		/* from = */ gl.sun_position,
+		/* to   = */ glm::vec3(0, 0, 0),
+		/* up   = */ glm::vec3(0, 1, 0)
+	)};
+	glm::mat4 sun_proj{glm::ortho<float>(
+		/* X ragne : */ -gl.sun_view_range, +gl.sun_view_range,
+		/* Y ragne : */ -gl.sun_view_range, +gl.sun_view_range,
+		/* planes  : */ -10, 10
+	)};
+	gl_draw_objects(*gl.scene_program, sun_view, sun_proj);
+
+	glUseProgram(0);
+}
+
+void Hw2Window::gl_render_shadowmap() {
+	gl.shadowmap_program->use();
+
+	glm::mat4 sun_view{glm::lookAt(
+		/* from = */ gl.sun_position,
+		/* to   = */ glm::vec3(0, 0, 0),
+		/* up   = */ glm::vec3(0, 1, 0)
+	)};
+	glm::mat4 sun_proj{glm::ortho<float>(
+		/* X ragne : */ -gl.sun_view_range, +gl.sun_view_range,
+		/* Y ragne : */ -gl.sun_view_range, +gl.sun_view_range,
+		/* planes  : */ -10, 10
+	)};
+	gl_draw_objects(*gl.shadowmap_program, sun_view, sun_proj);
+
+	glUseProgram(0);
+}
+
+void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
+	for (SceneObject const *object: {gl.object.get(), gl.base_plane.get()}) {
+		auto pos{program.get_attribute("vertex_position_model")};
+		auto nor{program.get_attribute("vertex_normal_model")};
+		if (pos != Program::no_id)
+			object->set_attribute_to_position(pos);
+		if (nor != Program::no_id)
+			object->set_attribute_to_normal(nor);
+		object->draw(
+			v, p,
+			program.get_uniform("m"), program.get_uniform("v"), program.get_uniform("p"),
+			program.get_uniform("mv"), program.get_uniform("mvp")
+		);
+	}
 }
 
 static gboolean animate_tick_wrapper(GtkWidget *, GdkFrameClock *clock, gpointer data) {
@@ -252,7 +333,7 @@ void Hw2Window::reset_clicked() {
 	gl.angle = 0;
 	if (animation.state == animation.STARTED)
 		animation.state = animation.PENDING;
-	update_camera();
+	area->queue_render();
 }
 
 void Hw2Window::animate_tick(gint64 new_time) {
@@ -266,20 +347,9 @@ void Hw2Window::animate_tick(gint64 new_time) {
 	gint64 delta{new_time - animation.start_time};
 	double secondsDelta{delta / static_cast<double>(G_USEC_PER_SEC)};
 	gl.angle = fmod(animation.start_angle + secondsDelta * animation.angle_per_second, 2 * M_PI);
-	update_camera();
+	area->queue_render();
 }
 
-void Hw2Window::update_camera() {
-	double t{cos(3 * gl.angle) * M_PI / 12 + M_PI / 8};
-	float const r{.4};
-	gl.camera = glm::lookAt(
-		/* from = */ glm::vec3(
-			r * sin(gl.angle) * cos(t),
-			r * sin(t) + 0.1,
-			r * cos(gl.angle) * cos(t)
-		),
-		/* to   = */ glm::vec3(0.0f, 0.1f, 0.0f),
-		/* up   = */ glm::vec3(0.0f, 1.0f, 0.0f)
-	);
+void Hw2Window::display_mode_changed() {
 	area->queue_render();
 }

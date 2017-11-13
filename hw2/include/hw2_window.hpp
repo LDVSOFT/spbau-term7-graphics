@@ -32,34 +32,24 @@ private:
 
 	enum display_mode_t {
 		SCENE,
+		SCENE_FROM_SUN,
 		SHADOWMAP
 	};
 
 	struct _gl {
-		struct {
-			GLuint m{0};
-			GLuint v{0};
-			GLuint mv{0};
-			GLuint mvp{0};
-
-			GLuint light_position{0};
-			GLuint light_power{0};
-			GLuint light_color{0};
-
-			GLuint sun_direction{0};
-			GLuint sun_power{0};
-			GLuint sun_color{0};
-
-			GLuint vertex_position{0};
-			GLuint vertex_normal{0};
-		} locations;
-		std::unique_ptr<Program> program;
+		std::unique_ptr<Program> scene_program, shadowmap_program;
 
 		static GLsizei constexpr depth_buffer_size{2048};
 		GLuint framebuffer;
 
-		glm::mat4 camera;
-		glm::mat4 perspective;
+		glm::vec3 light_position;
+		glm::vec3 light_color;
+		float light_power;
+
+		glm::vec3 sun_position;
+		glm::vec3 sun_color;
+		float sun_power;
+		float sun_view_range;
 
 		float angle{0};
 		std::unique_ptr<SceneObject> object, base_plane;
@@ -80,10 +70,14 @@ private:
 	void gl_init();
 	void gl_finit();
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
+	void gl_render_scene();
+	void gl_render_scene_from_sun();
+	void gl_render_shadowmap();
+	void gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 
 	void animate_toggled();
-	void update_camera();
 	void reset_clicked();
+	void display_mode_changed();
 
 public:
 	static std::unique_ptr<Hw2Window> create();

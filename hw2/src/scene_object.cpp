@@ -1,4 +1,5 @@
 #include "scene_object.hpp"
+#include "program.hpp"
 
 #include <iostream>
 
@@ -56,23 +57,23 @@ void SceneObject::draw(
 
 	glm::mat4 mv{v * position};
 	glm::mat4 mvp{p * mv};
-	if (m_attribute != no_attribute) {
+	if (m_attribute != Program::no_id) {
 		glUniformMatrix4fv(m_attribute, 1, GL_FALSE, &position[0][0]);
 	//	check("SceneObject::draw set m");
 	}
-	if (v_attribute != no_attribute) {
+	if (v_attribute != Program::no_id) {
 		glUniformMatrix4fv(v_attribute, 1, GL_FALSE, &v[0][0]);
 	//	check("SceneObject::draw set v");
 	}
-	if (p_attribute != no_attribute) {
+	if (p_attribute != Program::no_id) {
 		glUniformMatrix4fv(p_attribute, 1, GL_FALSE, &p[0][0]);
 	//	check("SceneObject::draw set p");
 	}
-	if (mv_attribute != no_attribute) {
+	if (mv_attribute != Program::no_id) {
 		glUniformMatrix4fv(mv_attribute, 1, GL_FALSE, &mv[0][0]);
 	//	check("SceneObject::draw set mv");
 	}
-	if (mvp_attribute != no_attribute) {
+	if (mvp_attribute != Program::no_id) {
 		glUniformMatrix4fv(mvp_attribute, 1, GL_FALSE, &mvp[0][0]);
 	//	check("SceneObject::draw set mvp");
 	}

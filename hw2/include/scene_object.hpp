@@ -19,7 +19,6 @@ public:
 	SceneObject(Object const &obj);
 	~SceneObject();
 
-	static constexpr GLuint no_attribute = -1;
 	void draw(
 		glm::mat4 const &v, glm::mat4 const &p,
 		GLuint m_attribute, GLuint v_attribute, GLuint p_attribute,

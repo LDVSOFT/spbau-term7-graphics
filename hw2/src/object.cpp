@@ -8,12 +8,12 @@
 #include <iostream>
 #include <map>
 
-static std::vector<std::string> split_by(std::string const &s, char c) {
+static std::vector<std::string> split_by(std::string const &s, char c, bool filter = true) {
 	std::istringstream stream(s);
 	std::string elem;
 	std::vector<std::string> result;
 	while (std::getline(stream, elem, c))
-		if (elem.size() > 0)
+		if (elem.size() > 0 || !filter)
 			result.push_back(elem);
 	return result;
 }
@@ -45,7 +45,7 @@ Object Object::load(std::string const &obj) {
 		} else if (type == "f") {
 			std::vector<GLuint> verts;
 			for (auto const &t: tokens) {
-				auto elems(split_by(t, '/'));
+				auto elems(split_by(t, '/', false));
 				size_t constexpr bad(-1);
 
 				size_t v_id, vt_id(bad), vn_id(bad);
@@ -59,8 +59,8 @@ Object Object::load(std::string const &obj) {
 				if (v_ids.count(id) == 0) {
 					vertex_data vertex;
 					vertex.pos  = v[v_id];
-					vertex.norm = (vn_id == bad) ? glm::vec3{0, 0, 0} : v[vn_id];
-					vertex.uv   = (vt_id == bad) ? glm::vec2{0, 0}    : v[vt_id];
+					vertex.norm = (vn_id == bad) ? glm::vec3{0, 0, 0} : vn[vn_id];
+					vertex.uv   = (vt_id == bad) ? glm::vec2{0, 0}    : vt[vt_id];
 					result.verticies.push_back(vertex);
 					v_ids[id] = result.verticies.size() - 1;
 				}

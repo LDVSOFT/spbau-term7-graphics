@@ -39,8 +39,9 @@ private:
 	struct _gl {
 		std::unique_ptr<Program> scene_program, shadowmap_program;
 
-		static GLsizei constexpr depth_buffer_size{2048};
+		static GLsizei constexpr shadowmap_size{2048};
 		GLuint framebuffer;
+		GLuint shadowmap;
 
 		glm::vec3 light_position;
 		glm::vec3 light_color;
@@ -50,6 +51,8 @@ private:
 		glm::vec3 sun_color;
 		float sun_power;
 		float sun_view_range;
+
+		glm::mat4 sun_proj, sun_view;
 
 		float angle{0};
 		std::unique_ptr<SceneObject> object, base_plane;

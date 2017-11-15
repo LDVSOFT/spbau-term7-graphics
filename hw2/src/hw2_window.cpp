@@ -85,7 +85,7 @@ Hw2Window::Hw2Window(
 	gl.light_power = .006;
 
 	gl.sun_position = glm::vec3(-.1, .1, -.1);
-	gl.sun_color = glm::vec3(1, .6, 0);
+	gl.sun_color = glm::vec3(1, .95, .5);
 	gl.sun_power = .9;
 	gl.sun_view_range = .3;
 }
@@ -152,7 +152,6 @@ void Hw2Window::gl_init() {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-		// FIXME
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gl.shadowmap, /* mipmap_level = */ 0);
 		glDrawBuffer(GL_NONE);
 
@@ -171,13 +170,13 @@ void Hw2Window::gl_init() {
 		/* rabbit */ {
 			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
 			obj.recalculate_normals();
+			obj.normals_as_colors();
 			gl.object = std::make_unique<SceneObject>(obj);
 			gl.object->position = glm::translate(glm::mat4(1), glm::vec3(0, -.03, 0));
 		}
 
 		/* base plane */ {
 			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/plane.obj")))};
-			std::cout << obj << std::endl;
 			gl.base_plane = std::make_unique<SceneObject>(obj);
 		}
 		gl.sun_proj = glm::ortho<float>(
@@ -330,10 +329,13 @@ void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm:
 	for (SceneObject const *object: {gl.object.get(), gl.base_plane.get()}) {
 		auto pos{program.get_attribute("vertex_position_model")};
 		auto nor{program.get_attribute("vertex_normal_model")};
+		auto clr{program.get_attribute("vertex_color")};
 		if (pos != Program::no_id)
 			object->set_attribute_to_position(pos);
 		if (nor != Program::no_id)
 			object->set_attribute_to_normal(nor);
+		if (clr != Program::no_id)
+			object->set_attribute_to_color(clr);
 		object->draw(
 			v, p,
 			program.get_uniform("m"), program.get_uniform("v"), program.get_uniform("p"),

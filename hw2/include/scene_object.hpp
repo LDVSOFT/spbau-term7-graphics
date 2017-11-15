@@ -27,5 +27,5 @@ public:
 
 	void set_attribute_to_position(GLuint attribute) const;
 	void set_attribute_to_normal(GLuint attribute) const;
-	void set_attribute_to_uv(GLuint attribute) const;
+	void set_attribute_to_color(GLuint attribute) const;
 };

@@ -9,6 +9,7 @@ uniform mat4 shadowmap_vp;
 
 in vec3 vertex_position_model;
 in vec3 vertex_normal_model;
+in vec3 vertex_color;
 
 out vec3 fragment_position_world;
 out vec3 fragment_color;
@@ -23,7 +24,7 @@ void main() {
 	fragment_shadowmap_position = (position_sun + vec3(1, 1, 1)) / 2;
 
 	fragment_position_world = (m * vec4(vertex_position_model, 1)).xyz;
-	fragment_color = (vertex_normal_model + vec3(1, 1, 1)) / 2; // FIXME
+	fragment_color = vertex_color;
 	fragment_normal_camera = (mv * vec4(vertex_normal_model, 0)).xyz;
 	fragment_toeye_camera = -(mv * vec4(vertex_position_model, 1)).xyz;
 	fragment_tolight_camera = (v * vec4(light_world, 1)).xyz + fragment_toeye_camera;

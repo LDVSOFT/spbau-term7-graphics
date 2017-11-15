@@ -15,7 +15,7 @@ public:
 	struct vertex_data {
 		glm::vec3 pos;
 		glm::vec3 norm;
-		glm::vec2 uv;
+		glm::vec3 color;
 	};
 
 	static Object load(std::string const &obj);
@@ -29,6 +29,7 @@ public:
 	std::vector<std::array<GLuint, 3>> faces;
 	
 	void recalculate_normals();
+	void normals_as_colors();
 };
 
 std::ostream &operator<<(std::ostream &s, Object const &o);

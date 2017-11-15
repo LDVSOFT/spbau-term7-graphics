@@ -23,7 +23,7 @@ Object Object::load(std::string const &obj) {
 
 	std::vector<glm::vec3> v;
 	std::vector<glm::vec3> vn;
-	std::vector<glm::vec2> vt;
+	std::vector<glm::vec3> vc;
 
 	std::map<std::tuple<size_t, size_t, size_t>, GLuint> v_ids;
 
@@ -40,27 +40,27 @@ Object Object::load(std::string const &obj) {
 			v.push_back(glm::vec3(stof(tokens[0]), stof(tokens[1]), stof(tokens[2])));
 		} else if (type == "vn") {
 			vn.push_back(glm::vec3(stof(tokens[0]), stof(tokens[1]), stof(tokens[2])));
-		} else if (type == "vt") {
-			vt.push_back(glm::vec2(stof(tokens[0]), stof(tokens[1])));
+		} else if (type == "vc") {
+			vc.push_back(glm::vec3(stof(tokens[0]), stof(tokens[1]), stof(tokens[2])));
 		} else if (type == "f") {
 			std::vector<GLuint> verts;
 			for (auto const &t: tokens) {
 				auto elems(split_by(t, '/', false));
 				size_t constexpr bad(-1);
 
-				size_t v_id, vt_id(bad), vn_id(bad);
+				size_t v_id, vc_id(bad), vn_id(bad);
 				v_id = stoull(elems[0]) - 1;
 				if (elems.size() >= 2 && !elems[1].empty())
-					vt_id = stoull(elems[1]) - 1;
+					vc_id = stoull(elems[1]) - 1;
 				if (elems.size() >= 3 && !elems[2].empty())
 					vn_id = stoull(elems[2]) - 1;
 
-				std::tuple<size_t, size_t, size_t> id{v_id, vt_id, vn_id};
+				std::tuple<size_t, size_t, size_t> id{v_id, vc_id, vn_id};
 				if (v_ids.count(id) == 0) {
 					vertex_data vertex;
-					vertex.pos  = v[v_id];
-					vertex.norm = (vn_id == bad) ? glm::vec3{0, 0, 0} : vn[vn_id];
-					vertex.uv   = (vt_id == bad) ? glm::vec2{0, 0}    : vt[vt_id];
+					vertex.pos   = v[v_id];
+					vertex.norm  = (vn_id == bad) ? glm::vec3{0, 0, 0} : vn[vn_id];
+					vertex.color = (vc_id == bad) ? glm::vec3{1, 1, 1} : vc[vc_id];
 					result.verticies.push_back(vertex);
 					v_ids[id] = result.verticies.size() - 1;
 				}
@@ -96,6 +96,11 @@ void Object::recalculate_normals() {
 		verticies[i].norm = glm::normalize(new_normals[i]);
 }
 
+void Object::normals_as_colors() {
+	for (size_t i{0}; i != verticies.size(); ++i)
+		verticies[i].color = (verticies[i].norm + glm::vec3(1, 1, 1)) / 2.0f;
+}
+
 std::ostream &operator<<(std::ostream &s, Object const &o) {
 	s << "Object: " << o.verticies.size() << " verticies, " << o.faces.size() << " faces.\n";
 	for (size_t i{0}; i != o.verticies.size(); ++i) {
@@ -103,7 +108,7 @@ std::ostream &operator<<(std::ostream &s, Object const &o) {
 		s << "v" << i << ": ";
 		s << "pos=" << v.pos.x << "," << v.pos.y << "," << v.pos.z << " ";
 		s << "norm=" << v.norm.x << "," << v.norm.y << "," << v.norm.z << " ";
-		s << "uv=" << v.uv.x << "," << v.uv.y << "\n";
+		s << "color=" << v.color.x << "," << v.color.y << "," << v.color.z << "\n";
 	}
 	for (size_t i{0}; i != o.faces.size(); ++i) {
 		s << "f" << i << ": ";

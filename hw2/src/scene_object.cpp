@@ -119,15 +119,15 @@ void SceneObject::set_attribute_to_normal(GLuint attribute) const {
 	glBindVertexArray(0);
 }
 
-void SceneObject::set_attribute_to_uv(GLuint attribute) const {
+void SceneObject::set_attribute_to_color(GLuint attribute) const {
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ARRAY_BUFFER, data);
 
 	glEnableVertexAttribArray(attribute);
 	glVertexAttribPointer(attribute,
-		2, GL_FLOAT,
+		3, GL_FLOAT,
 		GL_FALSE,
-		sizeof(Object::vertex_data), reinterpret_cast<GLvoid const *>(offsetof(Object::vertex_data, uv))
+		sizeof(Object::vertex_data), reinterpret_cast<GLvoid const *>(offsetof(Object::vertex_data, color))
 	);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, 0);

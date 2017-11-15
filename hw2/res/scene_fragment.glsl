@@ -26,7 +26,7 @@ void main() {
 	vec3 ambient_color = 0.15 * diffuse_color;
 	vec3 specular_color = vec3(.1, .1, .1);
 
-	output_color = vec3(0, 0, .15);
+	output_color = ambient_color;
 
 	vec3 n = normalize(fragment_normal_camera);
 	vec3 tosun_camera = (v * vec4(tosun_world, 0)).xyz;

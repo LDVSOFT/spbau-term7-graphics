@@ -26,7 +26,7 @@ private:
 	Gtk::EventBox *area_eventbox;
 	Gtk::ToggleButton *animate;
 	Gtk::ComboBox *display_mode_combobox;
-	Gtk::Button *reset;
+	Gtk::Button *reset_position, *reset_animation;
 
 	Glib::RefPtr<Gtk::ListStore> display_mode_list_store;
 
@@ -40,6 +40,7 @@ private:
 		std::unique_ptr<Program> scene_program, shadowmap_program;
 
 		static GLsizei constexpr shadowmap_size{2048};
+		static float constexpr pov{60};
 		GLuint framebuffer;
 		GLuint shadowmap;
 
@@ -70,17 +71,28 @@ private:
 		float start_angle;
 	} animation;
 
+	struct {
+		float xangle{0}, yangle{0};
+
+		bool pressed{false};
+		float start_xangle, start_yangle;
+		double start_x, start_y;
+	} navigation;
+
 	void gl_init();
 	void gl_finit();
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
-	void gl_render_scene();
-	void gl_render_scene_from_sun();
+	void gl_render_scene(glm::mat4 const &view, glm::mat4 const &proj);
 	void gl_render_shadowmap();
 	void gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 
 	void animate_toggled();
-	void reset_clicked();
+	void reset_position_clicked();
+	void reset_animation_clicked();
 	void display_mode_changed();
+	bool mouse_pressed(GdkEventButton *event);
+	bool mouse_released(GdkEventButton *event);
+	bool mouse_moved(GdkEventMotion *event);
 
 public:
 	static std::unique_ptr<Hw2Window> create();

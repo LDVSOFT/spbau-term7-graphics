@@ -49,10 +49,12 @@
 						<property name="can_focus">False</property>
 						<property name="spacing">6</property>
 						<child>
-							<object class="GtkLabel">
+							<object class="GtkLabel" id="display_mode_label">
 								<property name="visible">True</property>
 								<property name="can_focus">False</property>
 								<property name="label" translatable="yes">Display mode</property>
+								<property name="wrap">True</property>
+								<property name="xalign">0</property>
 							</object>
 							<packing>
 								<property name="expand">False</property>
@@ -88,11 +90,36 @@
 					</packing>
 				</child>
 				<child>
-					<object class="GtkToggleButton" id="animate_toggle">
-						<property name="label" translatable="yes">Animate</property>
+					<object class="GtkBox">
 						<property name="visible">True</property>
-						<property name="can_focus">True</property>
-						<property name="receives_default">True</property>
+						<property name="can_focus">False</property>
+						<property name="spacing">6</property>
+						<child>
+							<object class="GtkLabel" id="animate_label">
+								<property name="visible">True</property>
+								<property name="can_focus">False</property>
+								<property name="label" translatable="yes">Animate</property>
+								<property name="xalign">0</property>
+							</object>
+							<packing>
+								<property name="expand">False</property>
+								<property name="fill">True</property>
+								<property name="position">0</property>
+							</packing>
+						</child>
+						<child>
+							<object class="GtkToggleButton" id="animate_toggle">
+								<property name="label" translatable="yes">Toggle</property>
+								<property name="visible">True</property>
+								<property name="can_focus">True</property>
+								<property name="receives_default">True</property>
+							</object>
+							<packing>
+								<property name="expand">True</property>
+								<property name="fill">True</property>
+								<property name="position">1</property>
+							</packing>
+						</child>
 					</object>
 					<packing>
 						<property name="expand">False</property>
@@ -101,13 +128,52 @@
 					</packing>
 				</child>
 				<child>
-					<object class="GtkButton" id="reset_button">
-						<property name="label" translatable="yes">_Reset position</property>
+					<object class="GtkBox">
 						<property name="visible">True</property>
-						<property name="can_focus">True</property>
-						<property name="receives_default">True</property>
-						<property name="use_underline">True</property>
-						<signal name="clicked" handler="reset_position" object="Hw1AppWindow" swapped="yes"/>
+						<property name="can_focus">False</property>
+						<property name="spacing">6</property>
+						<child>
+							<object class="GtkLabel" id="reset_label">
+								<property name="visible">True</property>
+								<property name="can_focus">False</property>
+								<property name="label" translatable="yes">Reset</property>
+								<property name="wrap">True</property>
+								<property name="xalign">0</property>
+							</object>
+							<packing>
+								<property name="expand">False</property>
+								<property name="fill">True</property>
+								<property name="position">0</property>
+							</packing>
+						</child>
+						<child>
+							<object class="GtkButton" id="reset_position_button">
+								<property name="label" translatable="yes">Position</property>
+								<property name="visible">True</property>
+								<property name="can_focus">True</property>
+								<property name="receives_default">True</property>
+								<property name="use_underline">True</property>
+								<signal name="clicked" handler="reset_position" object="Hw1AppWindow" swapped="yes"/>
+							</object>
+							<packing>
+								<property name="expand">True</property>
+								<property name="fill">True</property>
+								<property name="position">1</property>
+							</packing>
+						</child>
+						<child>
+							<object class="GtkButton" id="reset_animation_button">
+								<property name="label" translatable="yes">Animation</property>
+								<property name="visible">True</property>
+								<property name="can_focus">True</property>
+								<property name="receives_default">True</property>
+							</object>
+							<packing>
+								<property name="expand">True</property>
+								<property name="fill">True</property>
+								<property name="position">2</property>
+							</packing>
+						</child>
 					</object>
 					<packing>
 						<property name="expand">False</property>
@@ -117,5 +183,12 @@
 				</child>
 			</object>
 		</child>
+	</object>
+	<object class="GtkSizeGroup">
+		<widgets>
+			<widget name="display_mode_label"/>
+			<widget name="animate_label"/>
+			<widget name="reset_label"/>
+		</widgets>
 	</object>
 </interface>

@@ -3,6 +3,8 @@
 
 #include <epoxy/gl.h>
 
+#include <gdk/gdkkeysyms.h>
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 
@@ -36,6 +38,11 @@ static void check(std::string const &name) {
 		std::cout << "Check " << name << " FAILED " << std::hex << error << std::endl;
 }
 
+static gboolean tick_wrapper(GtkWidget *, GdkFrameClock *clock, gpointer data) {
+	static_cast<Hw2Window *>(data)->tick(gdk_frame_clock_get_frame_time(clock));
+	return G_SOURCE_CONTINUE;
+}
+
 Hw2Window::Hw2Window(
 	BaseObjectType *type,
 	RefPtr<Builder> const &builder
@@ -49,6 +56,8 @@ Hw2Window::Hw2Window(
 	builder->get_widget("display_mode_combobox", display_mode_combobox);
 	builder->get_widget("reset_position_button", reset_position);
 	builder->get_widget("reset_animation_button", reset_animation);
+
+	ticker_id = gtk_widget_add_tick_callback(GTK_WIDGET(area->gobj()), tick_wrapper, this, nullptr);
 
 	display_mode_list_store = RefPtr<Gtk::ListStore>::cast_dynamic(builder->get_object("display_mode_list_store"));
 
@@ -73,16 +82,19 @@ Hw2Window::Hw2Window(
 		display_mode_combobox->set_active(SCENE);
 	}
 
-	area->signal_realize().connect(sigc::mem_fun(*this, &Hw2Window::gl_init));
+	area->signal_realize  ().connect(sigc::mem_fun(*this, &Hw2Window::gl_init));
 	area->signal_unrealize().connect(sigc::mem_fun(*this, &Hw2Window::gl_finit), false);
-	area->signal_render().connect(sigc::mem_fun(*this, &Hw2Window::gl_render));
+	area->signal_render   ().connect(sigc::mem_fun(*this, &Hw2Window::gl_render));
 
-	area_eventbox->signal_button_press_event ().connect(sigc::mem_fun(*this, &Hw2Window::mouse_pressed));
+	area_eventbox->signal_button_press_event  ().connect(sigc::mem_fun(*this, &Hw2Window::mouse_pressed));
 	area_eventbox->signal_button_release_event().connect(sigc::mem_fun(*this, &Hw2Window::mouse_pressed));
-	area_eventbox->signal_motion_notify_event().connect(sigc::mem_fun(*this, &Hw2Window::mouse_moved));
+	area_eventbox->signal_motion_notify_event ().connect(sigc::mem_fun(*this, &Hw2Window::mouse_moved));
+
+	signal_key_press_event  ().connect(sigc::mem_fun(*this, &Hw2Window::key_pressed));
+	signal_key_release_event().connect(sigc::mem_fun(*this, &Hw2Window::key_released));
 
 	animate->signal_toggled().connect(sigc::mem_fun(*this, &Hw2Window::animate_toggled));
-	reset_position->signal_clicked().connect(sigc::mem_fun(*this, &Hw2Window::reset_position_clicked));
+	reset_position->signal_clicked ().connect(sigc::mem_fun(*this, &Hw2Window::reset_position_clicked));
 	reset_animation->signal_clicked().connect(sigc::mem_fun(*this, &Hw2Window::reset_animation_clicked));
 	display_mode_combobox->signal_changed().connect(sigc::mem_fun(*this, &Hw2Window::display_mode_changed));
 
@@ -93,10 +105,15 @@ Hw2Window::Hw2Window(
 	gl.sun_position = glm::vec3(-.1, .1, -.1);
 	gl.sun_color = glm::vec3(1, .95, .5);
 	gl.sun_power = .9;
-	gl.sun_view_range = .3;
+	view_range = .3;
+
+	reset_position_clicked();
+	reset_animation_clicked();
 }
 
-Hw2Window::~Hw2Window() = default;
+Hw2Window::~Hw2Window() {
+	gtk_widget_remove_tick_callback(GTK_WIDGET(area->gobj()), ticker_id);
+}
 
 void Hw2Window::gl_init() {
 	area->make_current();
@@ -186,8 +203,8 @@ void Hw2Window::gl_init() {
 			gl.base_plane = std::make_unique<SceneObject>(obj);
 		}
 		gl.sun_proj = glm::ortho<float>(
-			/* X ragne : */ -gl.sun_view_range, +gl.sun_view_range,
-			/* Y ragne : */ -gl.sun_view_range, +gl.sun_view_range,
+			/* X ragne : */ -view_range, +view_range,
+			/* Y ragne : */ -view_range, +view_range,
 			/* planes  : */ -10, 10
 		);
 		gl.sun_view = glm::lookAt(
@@ -237,10 +254,8 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 		glViewport(old_vp[0], old_vp[1], old_vp[2], old_vp[3]);
 	}
 
-	//float const r{.5};
-	glm::mat4 cam_view{glm::rotate(navigation.yangle, glm::vec3(1, 0, 0)) * glm::rotate(navigation.xangle, glm::vec3(0, -1, 0)) * glm::translate(glm::vec3(-.2, -.2, -.2))};
 	glm::mat4 cam_proj{glm::perspective(
-		/* vertical fov = */ glm::radians(gl.pov),
+		/* vertical fov = */ glm::radians(gl.fov),
 		/* ratio        = */ static_cast<float>(area->get_width()) / area->get_height(),
 		/* planes       : */ .01f, 1000.0f
 	)};
@@ -248,7 +263,7 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	switch (display_mode_combobox->get_active_row_number()) {
 	case SCENE:
-		gl_render_scene(cam_view, cam_proj);
+		gl_render_scene(get_camera_view(), cam_proj);
 		break;
 	case SCENE_FROM_SUN:
 		gl_render_scene(gl.sun_view, gl.sun_proj);
@@ -318,25 +333,25 @@ void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm:
 	}
 }
 
-static gboolean animate_tick_wrapper(GtkWidget *, GdkFrameClock *clock, gpointer data) {
-	static_cast<Hw2Window *>(data)->animate_tick(gdk_frame_clock_get_frame_time(clock));
-	return G_SOURCE_CONTINUE;
+glm::mat4 Hw2Window::get_camera_view() const {
+	return glm::rotate(navigation.yangle, glm::vec3(1, 0, 0)) *
+		glm::rotate(navigation.xangle, glm::vec3(0, -1, 0)) *
+		glm::translate(-navigation.camera_position);
 }
 
 void Hw2Window::animate_toggled() {
 	bool state{animate->get_active()};
 	if (state) {
 		animation.state = animation.PENDING;
-		animation.id = gtk_widget_add_tick_callback(GTK_WIDGET(area->gobj()), animate_tick_wrapper, this, nullptr);
 	} else {
 		animation.state = animation.STOPPED;
-		gtk_widget_remove_tick_callback(GTK_WIDGET(area->gobj()), animation.id);
 	}
 }
 
 void Hw2Window::reset_position_clicked() {
 	navigation.xangle = 0;
 	navigation.yangle = 0;
+	navigation.camera_position = glm::vec3(0, .2, .2);
 	area->queue_render();
 }
 
@@ -347,18 +362,57 @@ void Hw2Window::reset_animation_clicked() {
 	area->queue_render();
 }
 
-void Hw2Window::animate_tick(gint64 new_time) {
-	if (animation.state == animation.PENDING) {
-		animation.start_time = new_time;
-		animation.start_angle = gl.angle;
-		animation.state = animation.STARTED;
-		return;
-	}
-
+void Hw2Window::tick(gint64 new_time) {
 	gint64 delta{new_time - animation.start_time};
-	double secondsDelta{delta / static_cast<double>(G_USEC_PER_SEC)};
-	gl.angle = fmod(animation.start_angle + secondsDelta * animation.angle_per_second, 2 * M_PI);
-	area->queue_render();
+	double seconds_delta{delta / static_cast<double>(G_USEC_PER_SEC)};
+	/* animation */ {
+		switch (animation.state) {
+		case animation.PENDING:
+			animation.start_time = new_time;
+			animation.start_angle = gl.angle;
+			animation.state = animation.STARTED;
+			break;
+		case animation.STARTED:
+			gl.angle = fmod(animation.start_angle + seconds_delta * animation.angle_per_second, 2 * M_PI);
+			area->queue_render();
+			break;
+		default:
+			break;
+		}
+	}
+	/* navigation */ {
+		bool flag{false};
+		glm::vec3 direction(0, 0, 0);
+		if (navigation.to_left) {
+			direction += glm::vec3(-1, 0, 0);
+			flag = true;
+		}
+		if (navigation.to_right) {
+			direction += glm::vec3(+1, 0, 0);
+			flag = true;
+		}
+		if (navigation.to_up) {
+			direction += glm::vec3(0, +1, 0);
+			flag = true;
+		}
+		if (navigation.to_down) {
+			direction += glm::vec3(0, -1, 0);
+			flag = true;
+		}
+		if (navigation.to_front) {
+			direction += glm::vec3(0, 0, -1);
+			flag = true;
+		}
+		if (navigation.to_back) {
+			direction += glm::vec3(0, 0, +1);
+			flag = true;
+		}
+		if (flag) {
+			direction *= view_range / 20;
+			navigation.camera_position += glm::vec3(inverse(get_camera_view()) * glm::vec4(direction, 0));
+			area->queue_render();
+		}
+	}
 }
 
 void Hw2Window::display_mode_changed() {
@@ -384,7 +438,7 @@ bool Hw2Window::mouse_moved(GdkEventMotion *event) {
 	if (!navigation.pressed)
 		return false;
 
-	//double vpov{gl.pov / 2}, hpov{atan(tan(gl.pov) * area->get_width() / area->get_height()) / 2};
+	//double vfov{gl.fov / 2}, hfov{atan(tan(gl.fov) * area->get_width() / area->get_height()) / 2};
 	double rel_x{-1 + 2 * event->x / area->get_width()};
 	double rel_y{+1 - 2 * event->y / area->get_height()};
 	double rel_start_x{-1 + 2 * navigation.start_x / area->get_width()};
@@ -397,5 +451,53 @@ bool Hw2Window::mouse_moved(GdkEventMotion *event) {
 	navigation.yangle = glm::clamp(navigation.start_yangle + dy, -M_PI / 2, +M_PI / 2);
 
 	area->queue_render();
+	return false;
+}
+
+bool Hw2Window::key_pressed(GdkEventKey *event) {
+	switch (event->keyval) {
+	case GDK_KEY_a:
+		navigation.to_left = true;
+		break;
+	case GDK_KEY_d:
+		navigation.to_right = true;
+		break;
+	case GDK_KEY_r:
+		navigation.to_up = true;
+		break;
+	case GDK_KEY_f:
+		navigation.to_down = true;
+		break;
+	case GDK_KEY_w:
+		navigation.to_front = true;
+		break;
+	case GDK_KEY_s:
+		navigation.to_back = true;
+		break;
+	}
+	return false;
+}
+
+bool Hw2Window::key_released(GdkEventKey *event) {
+	switch (event->keyval) {
+	case GDK_KEY_a:
+		navigation.to_left = false;
+		break;
+	case GDK_KEY_d:
+		navigation.to_right = false;
+		break;
+	case GDK_KEY_r:
+		navigation.to_up = false;
+		break;
+	case GDK_KEY_f:
+		navigation.to_down = false;
+		break;
+	case GDK_KEY_w:
+		navigation.to_front = false;
+		break;
+	case GDK_KEY_s:
+		navigation.to_back = false;
+		break;
+	}
 	return false;
 }

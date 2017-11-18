@@ -11,6 +11,7 @@
 	<object class="GtkApplicationWindow" id="Hw2Window">
 		<property name="can_focus">False</property>
 		<property name="border_width">6</property>
+		<property name="events">GDK_KEY_PRESS_MASK</property>
 		<property name="window_position">center</property>
 		<property name="default_width">400</property>
 		<property name="default_height">600</property>

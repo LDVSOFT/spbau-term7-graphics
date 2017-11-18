@@ -3,6 +3,7 @@
 #include "scene_object.hpp"
 #include "program.hpp"
 
+#define GLM_FORCE_SWIZZLE
 #include <glm/mat4x4.hpp>
 
 #include <gtkmm/builder.h>
@@ -40,7 +41,7 @@ private:
 		std::unique_ptr<Program> scene_program, shadowmap_program;
 
 		static GLsizei constexpr shadowmap_size{2048};
-		static float constexpr pov{60};
+		static float constexpr fov{60};
 		GLuint framebuffer;
 		GLuint shadowmap;
 
@@ -51,7 +52,6 @@ private:
 		glm::vec3 sun_position;
 		glm::vec3 sun_color;
 		float sun_power;
-		float sun_view_range;
 
 		glm::mat4 sun_proj, sun_view;
 
@@ -59,13 +59,15 @@ private:
 		std::unique_ptr<SceneObject> object, base_plane;
 	} gl;
 
+	guint ticker_id;
+	float view_range;
+
 	struct {
 		enum {
 			STOPPED,
 			PENDING,
 			STARTED
 		} state{STOPPED};
-		guint id;
 		gint64 start_time;
 		double const angle_per_second{M_PI / 2};
 		float start_angle;
@@ -73,6 +75,9 @@ private:
 
 	struct {
 		float xangle{0}, yangle{0};
+		glm::vec3 camera_position;
+
+		bool to_left{false}, to_right{false}, to_up{false}, to_down{false}, to_front{false}, to_back{false};
 
 		bool pressed{false};
 		float start_xangle, start_yangle;
@@ -86,6 +91,8 @@ private:
 	void gl_render_shadowmap();
 	void gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 
+	glm::mat4 get_camera_view() const;
+
 	void animate_toggled();
 	void reset_position_clicked();
 	void reset_animation_clicked();
@@ -93,6 +100,8 @@ private:
 	bool mouse_pressed(GdkEventButton *event);
 	bool mouse_released(GdkEventButton *event);
 	bool mouse_moved(GdkEventMotion *event);
+	bool key_pressed(GdkEventKey *event);
+	bool key_released(GdkEventKey *event);
 
 public:
 	static std::unique_ptr<Hw2Window> create();
@@ -100,5 +109,5 @@ public:
 	Hw2Window(BaseObjectType *type, Glib::RefPtr<Gtk::Builder> const &builder);
 	~Hw2Window() override;
 
-	void animate_tick(gint64 time);
+	void tick(gint64 time);
 };

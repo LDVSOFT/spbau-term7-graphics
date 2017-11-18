@@ -14,7 +14,7 @@ private:
 	size_t elems_count;
 
 public:
-	glm::mat4 position{1.0};
+	glm::mat4 position{1.0}, animation_position{1.0};
 
 	SceneObject(Object const &obj);
 	~SceneObject();

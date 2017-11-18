@@ -55,8 +55,8 @@ private:
 
 		glm::mat4 sun_proj, sun_view;
 
-		float angle{0};
-		std::unique_ptr<SceneObject> object, base_plane;
+		static int constexpr acolytes_count{6};
+		std::unique_ptr<SceneObject> statue, acolytes[acolytes_count], base_plane;
 	} gl;
 
 	guint ticker_id;
@@ -69,8 +69,9 @@ private:
 			STARTED
 		} state{STOPPED};
 		gint64 start_time;
-		double const angle_per_second{M_PI / 2};
-		float start_angle;
+		float progress{0};
+		double const progress_per_second{.08};
+		float start_progress;
 	} animation;
 
 	struct {

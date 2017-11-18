@@ -60,10 +60,11 @@ void main() {
 		}
 
 		/* debug */ {
+			//visibility = 0;
 			//output_color = vec3((actual_distance - 0.49) / 0.03, (shadowmap_distance - 0.49) / 0.03, 0.1);
 			//output_color = vec3(texture(shadowmap, vec2(.5, .5)).r, 0, (actual_distance - 0.49) / 0.03);
+			//output_color = vec3(fragment_shadowmap_position.xy, 0);
 			//output_color = vec3(fragment_shadowmap_position.xy, (actual_distance - 0.49) / 0.03);
-			//visibility = 0;
 		}
 
 		output_color += visibility * (

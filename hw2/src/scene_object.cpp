@@ -55,10 +55,11 @@ void SceneObject::draw(
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elems);
 //	check("SceneObject::draw bind elems");
 
-	glm::mat4 mv{v * position};
+	glm::mat4 m{position * animation_position};
+	glm::mat4 mv{v * m};
 	glm::mat4 mvp{p * mv};
 	if (m_attribute != Program::no_id) {
-		glUniformMatrix4fv(m_attribute, 1, GL_FALSE, &position[0][0]);
+		glUniformMatrix4fv(m_attribute, 1, GL_FALSE, &m[0][0]);
 	//	check("SceneObject::draw set m");
 	}
 	if (v_attribute != Program::no_id) {

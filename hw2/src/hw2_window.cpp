@@ -98,9 +98,9 @@ Hw2Window::Hw2Window(
 	reset_animation->signal_clicked().connect(sigc::mem_fun(*this, &Hw2Window::reset_animation_clicked));
 	display_mode_combobox->signal_changed().connect(sigc::mem_fun(*this, &Hw2Window::display_mode_changed));
 
-	gl.light_position = glm::vec3(0, .1, .15);
+	gl.light_position = glm::vec3(0, .1, .5);
 	gl.light_color = glm::vec3(1, 1, 1);
-	gl.light_power = .006;
+	gl.light_power = .04;
 
 	gl.sun_position = glm::vec3(-.1, .1, -.1);
 	gl.sun_color = glm::vec3(1, .95, .5);
@@ -193,9 +193,18 @@ void Hw2Window::gl_init() {
 		/* rabbit */ {
 			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
 			obj.recalculate_normals();
+			for (int i{0}; i != gl.acolytes_count; ++i) {
+				auto a{static_cast<float>(2 * M_PI / gl.acolytes_count * i)};
+				gl.acolytes[i] = std::make_unique<SceneObject>(obj);
+				gl.acolytes[i]->position = glm::rotate(a, glm::vec3(0, 1, 0))
+					* glm::translate(glm::vec3(.18, 0, 0))
+					* glm::scale(glm::vec3(.3, .3, .3))
+					* glm::translate(glm::vec3(0, -.03, 0));
+			}
+
 			obj.normals_as_colors();
-			gl.object = std::make_unique<SceneObject>(obj);
-			gl.object->position = glm::translate(glm::vec3(0, -.03, 0));
+			gl.statue = std::make_unique<SceneObject>(obj);
+			gl.statue->position = glm::translate(glm::vec3(0, -.03, 0));
 		}
 
 		/* base plane */ {
@@ -221,7 +230,9 @@ void Hw2Window::gl_finit() {
 	area->make_current();
 	if (area->has_error())
 		return;
-	gl.object = nullptr;
+	for (int i{0}; i != gl.acolytes_count; ++i)
+		gl.acolytes[i] = nullptr;
+	gl.statue = nullptr;
 	gl.base_plane = nullptr;
 	gl.scene_program = nullptr;
 	gl.shadowmap_program = nullptr;
@@ -236,7 +247,16 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 
 	glClearColor(0, 0, 0, 1);
 
-	/* animate the light */ {
+	/* animate */ {
+		double a{cos(animation.progress * 10 * M_PI) * M_PI / 6}, b{animation.progress * 30 * M_PI}, r{.3};
+		//std::cout << animation.progress << " " << a << " " << b << std::endl;
+		gl.light_position = glm::vec3(
+			r * cos(a) * sin(b),
+			.2 + r * sin(a),
+			r * cos(a) * cos(b)
+		);
+
+		gl.statue->animation_position = glm::translate(glm::vec3(0, std::max<float>(0, sin(animation.progress * 4 * M_PI)) * .01, 0));
 	}
 
 	/* shadowmap */ {
@@ -315,7 +335,7 @@ void Hw2Window::gl_render_shadowmap() {
 }
 
 void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
-	for (SceneObject const *object: {gl.object.get(), gl.base_plane.get()}) {
+	auto draw_object{[&](SceneObject const *object) -> void {
 		auto pos{program.get_attribute("vertex_position_model")};
 		auto nor{program.get_attribute("vertex_normal_model")};
 		auto clr{program.get_attribute("vertex_color")};
@@ -330,7 +350,12 @@ void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm:
 			program.get_uniform("m"), program.get_uniform("v"), program.get_uniform("p"),
 			program.get_uniform("mv"), program.get_uniform("mvp")
 		);
-	}
+	}};
+
+	draw_object(gl.base_plane.get());
+	draw_object(gl.statue.get());
+	for (int i{0}; i != gl.acolytes_count; ++i)
+		draw_object(gl.acolytes[i].get());
 }
 
 glm::mat4 Hw2Window::get_camera_view() const {
@@ -356,7 +381,7 @@ void Hw2Window::reset_position_clicked() {
 }
 
 void Hw2Window::reset_animation_clicked() {
-	gl.angle = 0;
+	animation.progress = 0;
 	if (animation.state == animation.STARTED)
 		animation.state = animation.PENDING;
 	area->queue_render();
@@ -369,11 +394,11 @@ void Hw2Window::tick(gint64 new_time) {
 		switch (animation.state) {
 		case animation.PENDING:
 			animation.start_time = new_time;
-			animation.start_angle = gl.angle;
+			animation.start_progress = animation.progress;
 			animation.state = animation.STARTED;
 			break;
 		case animation.STARTED:
-			gl.angle = fmod(animation.start_angle + seconds_delta * animation.angle_per_second, 2 * M_PI);
+			animation.progress = fmod(animation.start_progress + seconds_delta * animation.progress_per_second, 1);
 			area->queue_render();
 			break;
 		default:

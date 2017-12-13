@@ -1,0 +1,5 @@
+bin/*.o
+hw3
+src/hw3_resources.cpp
+Makefile.*
+*.trace

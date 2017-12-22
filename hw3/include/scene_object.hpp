@@ -5,8 +5,6 @@
 #include <epoxy/gl.h>
 #include <glm/glm.hpp>
 
-#include <set>
-
 class SceneObject {
 private:
 	GLuint vao{0};
@@ -16,7 +14,8 @@ private:
 public:
 	glm::mat4 position{1.0}, animation_position{1.0};
 
-	SceneObject(Object const &obj);
+	explicit SceneObject(Object const &obj);
+	SceneObject(SceneObject const &other) = delete;
 	~SceneObject();
 
 	void draw(

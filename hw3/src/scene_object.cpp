@@ -58,26 +58,16 @@ void SceneObject::draw(
 	glm::mat4 m{position * animation_position};
 	glm::mat4 mv{v * m};
 	glm::mat4 mvp{p * mv};
-	if (m_attribute != Program::no_id) {
-		glUniformMatrix4fv(m_attribute, 1, GL_FALSE, &m[0][0]);
-	//	check("SceneObject::draw set m");
-	}
-	if (v_attribute != Program::no_id) {
-		glUniformMatrix4fv(v_attribute, 1, GL_FALSE, &v[0][0]);
-	//	check("SceneObject::draw set v");
-	}
-	if (p_attribute != Program::no_id) {
-		glUniformMatrix4fv(p_attribute, 1, GL_FALSE, &p[0][0]);
-	//	check("SceneObject::draw set p");
-	}
-	if (mv_attribute != Program::no_id) {
-		glUniformMatrix4fv(mv_attribute, 1, GL_FALSE, &mv[0][0]);
-	//	check("SceneObject::draw set mv");
-	}
-	if (mvp_attribute != Program::no_id) {
-		glUniformMatrix4fv(mvp_attribute, 1, GL_FALSE, &mvp[0][0]);
-	//	check("SceneObject::draw set mvp");
-	}
+	glUniformMatrix4fv(m_attribute, 1, GL_FALSE, &m[0][0]);
+//	check("SceneObject::draw set m");
+	glUniformMatrix4fv(v_attribute, 1, GL_FALSE, &v[0][0]);
+//	check("SceneObject::draw set v");
+	glUniformMatrix4fv(p_attribute, 1, GL_FALSE, &p[0][0]);
+//	check("SceneObject::draw set p");
+	glUniformMatrix4fv(mv_attribute, 1, GL_FALSE, &mv[0][0]);
+//	check("SceneObject::draw set mv");
+	glUniformMatrix4fv(mvp_attribute, 1, GL_FALSE, &mvp[0][0]);
+//	check("SceneObject::draw set mvp");
 
 	glDrawElements(GL_TRIANGLES, (elems_count + 3) * 3, GL_UNSIGNED_INT, nullptr);
 //	check("SceneObject::draw draw");

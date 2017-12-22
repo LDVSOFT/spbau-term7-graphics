@@ -30,33 +30,31 @@ private:
 	Gtk::Button *reset_position, *reset_animation;
 
 	Glib::RefPtr<Gtk::ListStore> display_mode_list_store;
+	Glib::RefPtr<Gtk::Adjustment> lights_adjustment;
 
 	enum display_mode_t {
 		SCENE,
-		SCENE_FROM_SUN,
-		SHADOWMAP
+		DEFERRED_LIGHTS
 	};
 
 	struct _gl {
-		std::unique_ptr<Program> scene_program, shadowmap_program;
+		std::unique_ptr<Program> buffer_program, deferred_program;
 
-		static GLsizei constexpr shadowmap_size{2048};
 		static float constexpr fov{60};
 		GLuint framebuffer;
-		GLuint shadowmap;
 
-		glm::vec3 light_position;
-		glm::vec3 light_color;
-		float light_power;
+		struct light {
+			glm::vec3 position;
+			glm::vec3 color;
+			float power;
+			float speed;
+			float radius;
+		};
 
-		glm::vec3 sun_position;
-		glm::vec3 sun_color;
-		float sun_power;
+		std::unique_ptr<SceneObject> statue;
 
-		glm::mat4 sun_proj, sun_view;
-
-		static int constexpr acolytes_count{6};
-		std::unique_ptr<SceneObject> statue, acolytes[acolytes_count], base_plane;
+		std::unique_ptr<SceneObject> light_sphere;
+		std::vector<light> lights;
 	} gl;
 
 	guint ticker_id;
@@ -88,9 +86,10 @@ private:
 	void gl_init();
 	void gl_finit();
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
-	void gl_render_scene(glm::mat4 const &view, glm::mat4 const &proj);
-	void gl_render_shadowmap();
+	void gl_render_buffer(glm::mat4 const &view, glm::mat4 const &proj);
+	void gl_render_lights(glm::mat4 const &view, glm::mat4 const &proj);
 	void gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p);
+	void gl_draw_object(SceneObject const &object, Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 
 	glm::mat4 get_camera_view() const;
 

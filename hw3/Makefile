@@ -32,7 +32,9 @@ OBJS = $(SRCS:$(SRCDIR)/%.cpp=$(BINDIR)/%.o)
 .PHONY: all
 all: $(BIN)
 
-CXX = g++ -std=c++14 -Wall -Wextra -Werror -Wno-deprecated -g
+CXX = g++ -std=c++14 -Wall -Wextra -Werror -Wno-deprecated \
+	-g -Og
+#	-flto -O3 -march=native
 PKGCONFIG = pkg-config
 LIBS = gtkmm-3.0 gio-2.0 epoxy
 CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS) | sed 's/-I/-isystem/g') -iquote include/

@@ -60,6 +60,7 @@ Hw2Window::Hw2Window(
 	ticker_id = gtk_widget_add_tick_callback(GTK_WIDGET(area->gobj()), tick_wrapper, this, nullptr);
 
 	display_mode_list_store = RefPtr<Gtk::ListStore>::cast_dynamic(builder->get_object("display_mode_list_store"));
+	lights_adjustment = RefPtr<Gtk::Adjustment>::cast_dynamic(builder->get_object("lights_adjustment"));
 
 	area->set_has_depth_buffer();
 	/* options */ {
@@ -68,15 +69,10 @@ Hw2Window::Hw2Window(
 			auto &row{*display_mode_list_store->append()};
 			row.set_value<Glib::ustring>(0, "Scene");
 		}
-		/* scene_from_sum */ {
-			static_assert(SCENE_FROM_SUN == 1);
+		/* deferred: lights */ {
+			static_assert(DEFERRED_LIGHTS == 1);
 			auto &row{*display_mode_list_store->append()};
-			row.set_value<Glib::ustring>(0, "Scene (from sun)");
-		}
-		/* shadowmap */ {
-			static_assert(SHADOWMAP == 2);
-			auto &row{*display_mode_list_store->append()};
-			row.set_value<Glib::ustring>(0, "Shadowmap");
+			row.set_value<Glib::ustring>(0, "Deferred: lights");
 		}
 
 		display_mode_combobox->set_active(SCENE);
@@ -98,13 +94,12 @@ Hw2Window::Hw2Window(
 	reset_animation->signal_clicked().connect(sigc::mem_fun(*this, &Hw2Window::reset_animation_clicked));
 	display_mode_combobox->signal_changed().connect(sigc::mem_fun(*this, &Hw2Window::display_mode_changed));
 
-	gl.light_position = glm::vec3(0, .1, .5);
-	gl.light_color = glm::vec3(1, 1, 1);
-	gl.light_power = .04;
+	gl.lights.resize(1);
+	gl.lights[0].position = glm::vec3(0, .1, .5);
+	gl.lights[0].color = glm::vec3(1, 1, 1);
+	gl.lights[0].power = .04;
+	gl.lights[0].radius = .1;
 
-	gl.sun_position = glm::vec3(-.1, .1, -.1);
-	gl.sun_color = glm::vec3(1, .95, .5);
-	gl.sun_power = .9;
 	view_range = .3;
 
 	reset_position_clicked();
@@ -134,93 +129,58 @@ void Hw2Window::gl_init() {
 	}};
 
 	/* shaders */ {
-		/* scene */ {
+		/* buffer */ {
 			std::string vertex(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/scene_vertex.glsl")));
 			std::string fragment(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/scene_fragment.glsl")));
 			std::string error_string;
-			gl.scene_program = Program::build_program({{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}, error_string);
-			if (gl.scene_program == nullptr) {
-				report_error("Program Scene: " + error_string);
+			gl.buffer_program = Program::build_program({{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}, error_string);
+			if (gl.buffer_program == nullptr) {
+				report_error("Program Buffer: " + error_string);
 				return;
 			}
 		}
 
-		/* shadowmap */ {
-			std::string vertex(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/shadowmap_vertex.glsl")));
-			std::string fragment(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/shadowmap_fragment.glsl")));
+		/* deferred */ {
+			std::string vertex(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/deferred_vertex.glsl")));
+			std::string fragment(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/deferred_fragment.glsl")));
 			std::string error_string;
-			gl.shadowmap_program = Program::build_program({{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}, error_string);
-			if (gl.shadowmap_program == nullptr) {
-				report_error("Program Shadowmap: " + error_string);
+			gl.deferred_program = Program::build_program({{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}, error_string);
+			if (gl.deferred_program == nullptr) {
+				report_error("Program Deferred: " + error_string);
 				return;
 			}
 		}
 	}
 
 	/* framebuffer */ {
-		glGenFramebuffers(1, &gl.framebuffer);
-		glBindFramebuffer(GL_FRAMEBUFFER, gl.framebuffer);
+//		glGenFramebuffers(1, &gl.framebuffer);
+//		glBindFramebuffer(GL_FRAMEBUFFER, gl.framebuffer);
 
-		glGenTextures(1, &gl.shadowmap);
-		glBindTexture(GL_TEXTURE_2D, gl.shadowmap);
-		glTexImage2D(
-			GL_TEXTURE_2D, /* mipmap_level = */ 0,
-			GL_DEPTH_COMPONENT16,
-			gl.shadowmap_size, gl.shadowmap_size, 0,
-			GL_DEPTH_COMPONENT, GL_FLOAT,
-			nullptr
-		);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//		glDrawBuffer(GL_NONE);
 
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gl.shadowmap, /* mipmap_level = */ 0);
-		glDrawBuffer(GL_NONE);
+//		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+//			area->set_error(Error(hw3_error_quark, 0, "Failed to create framebuffer."));
+//			glDeleteFramebuffers(1, &gl.framebuffer);
+//			return;
+//		}
 
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-			area->set_error(Error(hw3_error_quark, 0, "Failed to create framebuffer."));
-			glDeleteFramebuffers(1, &gl.framebuffer);
-			glDeleteTextures(1, &gl.shadowmap);
-			return;
-		}
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+//		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
 	/* scene */ {
 		/* rabbit */ {
 			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
 			obj.recalculate_normals();
-			for (int i{0}; i != gl.acolytes_count; ++i) {
-				auto a{static_cast<float>(2 * M_PI / gl.acolytes_count * i)};
-				gl.acolytes[i] = std::make_unique<SceneObject>(obj);
-				gl.acolytes[i]->position = glm::rotate(a, glm::vec3(0, 1, 0))
-					* glm::translate(glm::vec3(.18, 0, 0))
-					* glm::scale(glm::vec3(.3, .3, .3))
-					* glm::translate(glm::vec3(0, -.03, 0));
-			}
-
 			obj.normals_as_colors();
 			gl.statue = std::make_unique<SceneObject>(obj);
 			gl.statue->position = glm::translate(glm::vec3(0, -.03, 0));
 		}
 
-		/* base plane */ {
-			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/plane.obj")))};
-			gl.base_plane = std::make_unique<SceneObject>(obj);
+		/* light cube */ {
+			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/light_sphere.obj")))};
+			gl.light_sphere = std::make_unique<SceneObject>(obj);
 		}
-		gl.sun_proj = glm::ortho<float>(
-			/* X ragne : */ -view_range, +view_range,
-			/* Y ragne : */ -view_range, +view_range,
-			/* planes  : */ -10, 10
-		);
-		gl.sun_view = glm::lookAt(
-			/* from = */ gl.sun_position,
-			/* to   = */ glm::vec3(0, 0, 0),
-			/* up   = */ glm::vec3(0, 1, 0)
-		);
 	}
 
 	std::cout << "Rendering on " << glGetString(GL_RENDERER) << std::endl;
@@ -230,12 +190,10 @@ void Hw2Window::gl_finit() {
 	area->make_current();
 	if (area->has_error())
 		return;
-	for (int i{0}; i != gl.acolytes_count; ++i)
-		gl.acolytes[i] = nullptr;
 	gl.statue = nullptr;
-	gl.base_plane = nullptr;
-	gl.scene_program = nullptr;
-	gl.shadowmap_program = nullptr;
+	gl.light_sphere = nullptr;
+	gl.deferred_program = nullptr;
+	gl.buffer_program = nullptr;
 }
 
 bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
@@ -248,31 +206,31 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	glClearColor(0, 0, 0, 1);
 
 	/* animate */ {
-		double a{cos(animation.progress * 10 * M_PI) * M_PI / 6}, b{animation.progress * 30 * M_PI}, r{.3};
+		double a{cos(animation.progress * 10 * M_PI) * M_PI / 6}, b{animation.progress * 30 * M_PI}, r{.1};
 		//std::cout << animation.progress << " " << a << " " << b << std::endl;
-		gl.light_position = glm::vec3(
+		gl.lights[0].position = glm::vec3(
 			r * cos(a) * sin(b),
-			.2 + r * sin(a),
+			.1 + r * sin(a),
 			r * cos(a) * cos(b)
 		);
 
 		gl.statue->animation_position = glm::translate(glm::vec3(0, std::max<float>(0, sin(animation.progress * 4 * M_PI)) * .01, 0));
 	}
 
-	/* shadowmap */ {
-		GLint old_buffer, old_vp[4];
-		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &old_buffer);
-		glGetIntegerv(GL_VIEWPORT, old_vp);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, gl.framebuffer);
-		glViewport(0, 0, gl.shadowmap_size, gl.shadowmap_size);
-
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		gl_render_shadowmap();
-
-		glBindFramebuffer(GL_FRAMEBUFFER, old_buffer);
-		glViewport(old_vp[0], old_vp[1], old_vp[2], old_vp[3]);
-	}
+//	/* shadowmap */ {
+//		GLint old_buffer, old_vp[4];
+//		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &old_buffer);
+//		glGetIntegerv(GL_VIEWPORT, old_vp);
+//
+//		glBindFramebuffer(GL_FRAMEBUFFER, gl.framebuffer);
+//		glViewport(0, 0, gl.shadowmap_size, gl.shadowmap_size);
+//
+//		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//		gl_render_shadowmap();
+//
+//		glBindFramebuffer(GL_FRAMEBUFFER, old_buffer);
+//		glViewport(old_vp[0], old_vp[1], old_vp[2], old_vp[3]);
+//	}
 
 	glm::mat4 cam_proj{glm::perspective(
 		/* vertical fov = */ glm::radians(gl.fov),
@@ -283,13 +241,11 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	switch (display_mode_combobox->get_active_row_number()) {
 	case SCENE:
-		gl_render_scene(get_camera_view(), cam_proj);
+		gl_render_buffer(get_camera_view(), cam_proj);
 		break;
-	case SCENE_FROM_SUN:
-		gl_render_scene(gl.sun_view, gl.sun_proj);
-		break;
-	case SHADOWMAP:
-		gl_render_shadowmap();
+	case DEFERRED_LIGHTS:
+		gl_render_lights(get_camera_view(), cam_proj);
+		gl_render_buffer(get_camera_view(), cam_proj);
 		break;
 	}
 
@@ -298,64 +254,62 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	return false;
 }
 
-void Hw2Window::gl_render_scene(glm::mat4 const &view, glm::mat4 const &proj) {
-	gl.scene_program->use();
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, gl.shadowmap);
+void Hw2Window::gl_render_buffer(glm::mat4 const &view, glm::mat4 const &proj) {
+	gl.buffer_program->use();
 
-	glm::mat4 shadowmap_vp{gl.sun_proj * gl.sun_view};
+	glUniform3fv(gl.buffer_program->get_uniform("light_world"), 1, &gl.lights[0].position[0]);
+	glUniform3fv(gl.buffer_program->get_uniform("light_color"), 1, &gl.lights[0].color[0]);
+	glUniform1f (gl.buffer_program->get_uniform("light_power"), gl.lights[0].power);
+	glUniform1f (gl.buffer_program->get_uniform("light_radius"), gl.lights[0].radius);
 
-	glUniform3fv(gl.scene_program->get_uniform("light_world"), 1, &gl.light_position[0]);
-	glUniform3fv(gl.scene_program->get_uniform("light_color"), 1, &gl.light_color[0]);
-	glUniform1f (gl.scene_program->get_uniform("light_power"), gl.light_power);
+	gl_draw_objects(*gl.buffer_program, view, proj);
 
-	glUniform3fv(gl.scene_program->get_uniform("tosun_world"), 1, &gl.sun_position[0]);
-	glUniform3fv(gl.scene_program->get_uniform("sun_color"  ), 1, &gl.sun_color[0]);
-	glUniform1f (gl.scene_program->get_uniform("sun_power"), gl.sun_power);
-
-	glUniform1i (gl.scene_program->get_uniform("shadowmap"), 0 /*gl.shadowmap*/);
-	glUniformMatrix4fv(
-		gl.scene_program->get_uniform("shadowmap_vp"),
-		1, GL_FALSE,
-		&shadowmap_vp[0][0]
-	);
-
-	gl_draw_objects(*gl.scene_program, view, proj);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
 	glUseProgram(0);
 }
 
-void Hw2Window::gl_render_shadowmap() {
-	gl.shadowmap_program->use();
+void Hw2Window::gl_render_lights(glm::mat4 const &view, glm::mat4 const &proj) {
+	gl.deferred_program->use();
 
-	gl_draw_objects(*gl.shadowmap_program, gl.sun_view, gl.sun_proj);
+	for ([[maybe_unused]] auto const &light: gl.lights) {
+		gl.light_sphere->position =
+			glm::translate(glm::mat4(), light.position) 
+			* glm::scale(glm::vec3(light.radius, light.radius, light.radius));
+
+		glUniform3fv(gl.deferred_program->get_uniform("light_world"), 1, &light.position[0]);
+		glUniform3fv(gl.deferred_program->get_uniform("light_color"), 1, &light.color[0]);
+		glUniform1f (gl.deferred_program->get_uniform("light_power"), light.power);
+		glUniform1f (gl.deferred_program->get_uniform("light_radius"), light.radius);
+
+		gl_draw_object(*gl.light_sphere, *gl.deferred_program, view, proj);
+	}
 
 	glUseProgram(0);
 }
 
 void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
-	auto draw_object{[&](SceneObject const *object) -> void {
-		auto pos{program.get_attribute("vertex_position_model")};
-		auto nor{program.get_attribute("vertex_normal_model")};
-		auto clr{program.get_attribute("vertex_color")};
-		if (pos != Program::no_id)
-			object->set_attribute_to_position(pos);
-		if (nor != Program::no_id)
-			object->set_attribute_to_normal(nor);
-		if (clr != Program::no_id)
-			object->set_attribute_to_color(clr);
-		object->draw(
-			v, p,
-			program.get_uniform("m"), program.get_uniform("v"), program.get_uniform("p"),
-			program.get_uniform("mv"), program.get_uniform("mvp")
-		);
-	}};
+	gl_draw_object(*gl.statue, program, v, p);
+}
 
-	draw_object(gl.base_plane.get());
-	draw_object(gl.statue.get());
-	for (int i{0}; i != gl.acolytes_count; ++i)
-		draw_object(gl.acolytes[i].get());
+void Hw2Window::gl_draw_object(
+	SceneObject const &object,
+	Program const &program,
+	glm::mat4 const &v,
+	glm::mat4 const &p
+) {
+	auto pos{program.get_attribute("vertex_position_model")};
+	auto nor{program.get_attribute("vertex_normal_model")};
+	auto clr{program.get_attribute("vertex_color")};
+	object.set_attribute_to_position(pos);
+	object.set_attribute_to_normal(nor);
+	object.set_attribute_to_color(clr);
+	object.draw(
+		v, p,
+		program.get_uniform("m"),
+		program.get_uniform("v"),
+		program.get_uniform("p"),
+		program.get_uniform("mv"),
+		program.get_uniform("mvp")
+	);
 }
 
 glm::mat4 Hw2Window::get_camera_view() const {

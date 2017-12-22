@@ -5,7 +5,6 @@ uniform mat4 v;
 uniform mat4 mv;
 uniform mat4 mvp;
 uniform vec3 light_world;
-uniform mat4 shadowmap_vp;
 
 in vec3 vertex_position_model;
 in vec3 vertex_normal_model;
@@ -16,12 +15,9 @@ out vec3 fragment_color;
 out vec3 fragment_normal_camera;
 out vec3 fragment_toeye_camera;
 out vec3 fragment_tolight_camera;
-out vec3 fragment_shadowmap_position;
 
 void main() {
 	gl_Position = mvp * vec4(vertex_position_model, 1);
-	vec3 position_sun = (shadowmap_vp * m * vec4(vertex_position_model, 1)).xyz;
-	fragment_shadowmap_position = (position_sun + vec3(1, 1, 1)) / 2;
 
 	fragment_position_world = (m * vec4(vertex_position_model, 1)).xyz;
 	fragment_color = vertex_color;

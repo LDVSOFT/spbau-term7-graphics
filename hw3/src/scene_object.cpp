@@ -14,24 +14,16 @@ static void check(std::string const &name) {
 
 SceneObject::SceneObject(Object const &obj) {
 	glGenVertexArrays(1, &vao);
-//	check("SceneObject:: gen vao");
 	glBindVertexArray(vao);
-//	check("SceneObject:: bind vao");
 
 	glGenBuffers(1, &data);
-//	check("SceneObject:: gen data buffer");
 	glBindBuffer(GL_ARRAY_BUFFER, data);
-//	check("SceneObject:: bind data buffer");
 	glBufferData(GL_ARRAY_BUFFER, sizeof(Object::vertex_data) * obj.verticies.size(), obj.verticies.data(), GL_STATIC_DRAW);
-//	check("SceneObject:: set data buffer");
 
 	glGenBuffers(1, &elems);
-//	check("SceneObject:: gen elems buffer");
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elems);
-//	check("SceneObject:: bind elems buffer");
 	elems_count = obj.faces.size();
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(decltype(obj.faces)::value_type) * elems_count, obj.faces.data(), GL_STATIC_DRAW);
-//	check("SceneObject:: set elems buffer");
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -45,57 +37,51 @@ SceneObject::~SceneObject() {
 }
 
 void SceneObject::draw(
-	glm::mat4 const &v, glm::mat4 const &p, 
-	GLuint m_attribute, GLuint v_attribute, GLuint p_attribute, 
-	GLuint mv_attribute, GLuint mvp_attribute
+	glm::mat4 const &v, glm::mat4 const &p,
+	GLuint m_attribute, GLuint mv_attribute, GLuint mvp_attribute,
+	GLuint m_inv_attribute, GLuint mv_inv_attribute, GLuint mvp_inv_attribute
 ) const {
-//	check("SceneObject::draw before...");
 	glBindVertexArray(vao);
-//	check("SceneObject::draw bind vao");
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elems);
-//	check("SceneObject::draw bind elems");
 
-	glm::mat4 m{position * animation_position};
-	glm::mat4 mv{v * m};
-	glm::mat4 mvp{p * mv};
-	glUniformMatrix4fv(m_attribute, 1, GL_FALSE, &m[0][0]);
-//	check("SceneObject::draw set m");
-	glUniformMatrix4fv(v_attribute, 1, GL_FALSE, &v[0][0]);
-//	check("SceneObject::draw set v");
-	glUniformMatrix4fv(p_attribute, 1, GL_FALSE, &p[0][0]);
-//	check("SceneObject::draw set p");
-	glUniformMatrix4fv(mv_attribute, 1, GL_FALSE, &mv[0][0]);
-//	check("SceneObject::draw set mv");
-	glUniformMatrix4fv(mvp_attribute, 1, GL_FALSE, &mvp[0][0]);
-//	check("SceneObject::draw set mvp");
+	glm::mat4 m(position * animation_position), m_inv(glm::inverse(m));
+	glm::mat4 mv(v * m), mv_inv(glm::inverse(mv));
+	glm::mat4 mvp(p * mv), mvp_inv(glm::inverse(mvp));
+	glUniformMatrix4fv(m_attribute      , 1, GL_FALSE, &m      [0][0]);
+	glUniformMatrix4fv(mv_attribute     , 1, GL_FALSE, &mv     [0][0]);
+	glUniformMatrix4fv(mvp_attribute    , 1, GL_FALSE, &mvp    [0][0]);
+	glUniformMatrix4fv(m_inv_attribute  , 1, GL_FALSE, &m_inv  [0][0]);
+	glUniformMatrix4fv(mv_inv_attribute , 1, GL_FALSE, &mv_inv [0][0]);
+	glUniformMatrix4fv(mvp_inv_attribute, 1, GL_FALSE, &mvp_inv[0][0]);
 
 	glDrawElements(GL_TRIANGLES, (elems_count + 3) * 3, GL_UNSIGNED_INT, nullptr);
-//	check("SceneObject::draw draw");
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 }
 
 void SceneObject::set_attribute_to_position(GLuint attribute) const {
+	if (attribute == Program::no_id)
+		return;
+
 	glBindVertexArray(vao);
-//	check("SceneObject::set_pos bind vao");
 	glBindBuffer(GL_ARRAY_BUFFER, data);
-//	check("SceneObject::set_pos bind data");
 	
 	glEnableVertexAttribArray(attribute);
-//	check("SceneObject::set_pos enable");
 	glVertexAttribPointer(attribute,
 		3, GL_FLOAT,
 		GL_FALSE,
 		sizeof(Object::vertex_data), reinterpret_cast<GLvoid const *>(offsetof(Object::vertex_data, pos))
 	);
-//	check("SceneObject::set_pos attibute");
 	
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 }
 
 void SceneObject::set_attribute_to_normal(GLuint attribute) const {
+	if (attribute == Program::no_id)
+		return;
+
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ARRAY_BUFFER, data);
 	
@@ -111,6 +97,9 @@ void SceneObject::set_attribute_to_normal(GLuint attribute) const {
 }
 
 void SceneObject::set_attribute_to_color(GLuint attribute) const {
+	if (attribute == Program::no_id)
+		return;
+
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ARRAY_BUFFER, data);
 

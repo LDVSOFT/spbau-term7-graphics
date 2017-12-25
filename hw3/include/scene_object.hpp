@@ -20,8 +20,8 @@ public:
 
 	void draw(
 		glm::mat4 const &v, glm::mat4 const &p,
-		GLuint m_attribute, GLuint v_attribute, GLuint p_attribute,
-		GLuint mv_attribute, GLuint mvp_attribute
+		GLuint m_attribute, GLuint mv_attribute, GLuint mvp_attribute,
+		GLuint m_inv_attribute, GLuint mv_inv_attribute, GLuint mvp_inv_attribute
 	) const;
 
 	void set_attribute_to_position(GLuint attribute) const;

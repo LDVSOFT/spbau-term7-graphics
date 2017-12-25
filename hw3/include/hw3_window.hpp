@@ -34,14 +34,25 @@ private:
 
 	enum display_mode_t {
 		SCENE,
-		DEFERRED_LIGHTS
+		SCENE_LIGHTS,
+		SCENE_LIGHTS_CULLED,
+		BUFFER_ALBEDO,
+		BUFFER_NORMAL,
+		BUFFER_DEPTH,
+		DEFERRED
 	};
 
 	struct _gl {
-		std::unique_ptr<Program> buffer_program, deferred_program;
+		std::unique_ptr<Program>
+			buffer_program,
+			deferred_program,
+			light_program,
+			scene_program,
+			texture_program;
 
 		static float constexpr fov{60};
 		GLuint framebuffer;
+		GLuint albedo_texture, normal_texture, depth_texture;
 
 		struct light {
 			glm::vec3 position;
@@ -53,7 +64,7 @@ private:
 
 		std::unique_ptr<SceneObject> statue;
 
-		std::unique_ptr<SceneObject> light_sphere;
+		std::unique_ptr<SceneObject> light_sphere, texture_rect;
 		std::vector<light> lights;
 	} gl;
 
@@ -86,9 +97,12 @@ private:
 	void gl_init();
 	void gl_finit();
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
-	void gl_render_buffer(glm::mat4 const &view, glm::mat4 const &proj);
+	void gl_render_buffer(Program const &program, glm::mat4 const &view, glm::mat4 const &proj);
 	void gl_render_lights(glm::mat4 const &view, glm::mat4 const &proj);
+	void gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj);
+	void gl_render_texture(int id);
 	void gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p);
+	void gl_draw_lights(Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 	void gl_draw_object(SceneObject const &object, Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 
 	glm::mat4 get_camera_view() const;

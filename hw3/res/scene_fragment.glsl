@@ -36,5 +36,4 @@ void main() {
 			specular_color * pow(cos_alpha, 5)
 		);
 	}
-
 }

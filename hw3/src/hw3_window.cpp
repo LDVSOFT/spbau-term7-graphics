@@ -204,9 +204,22 @@ void Hw2Window::gl_init() {
 		/* rabbit */ {
 			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/stanford_bunny.obj")))};
 			obj.recalculate_normals();
+			for (int i{0}; i != gl.acolytes_count; ++i) {
+				auto a{static_cast<float>(2 * M_PI / gl.acolytes_count * i)};
+				gl.acolytes[i] = std::make_unique<SceneObject>(obj);
+				gl.acolytes[i]->position = glm::rotate(a, glm::vec3(0, 1, 0))
+					* glm::translate(glm::vec3(.18, 0, 0))
+					* glm::scale(glm::vec3(.3, .3, .3))
+					* glm::translate(glm::vec3(0, -.03, 0));
+			}
 			obj.normals_as_colors();
 			gl.statue = std::make_unique<SceneObject>(obj);
 			gl.statue->position = glm::translate(glm::vec3(0, -.03, 0));
+		}
+
+		/* base plane */ {
+			::Object obj{::Object::load(std::get<0>(load_resource("/net/ldvsoft/spbau/gl/plane.obj")))};
+			gl.base_plane = std::make_unique<SceneObject>(obj);
 		}
 
 		/* light sphere */ {
@@ -256,7 +269,7 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 			double b{angle * 3 * light.speed};
 			light.position = glm::vec3(
 				light.radius * cos(a) * sin(b),
-				light.radius * sin(a) + .1,
+				light.radius * sin(a) + .15,
 				light.radius * cos(a) * cos(b)
 			);
 		}
@@ -508,6 +521,9 @@ void Hw2Window::gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj)
 
 void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
 	gl_draw_object(*gl.statue, program, v, p);
+	gl_draw_object(*gl.base_plane, program, v, p);
+	for (int i{0}; i != gl.acolytes_count; ++i)
+		gl_draw_object(*gl.acolytes[i], program, v, p);
 }
 
 void Hw2Window::gl_draw_lights(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
@@ -642,12 +658,11 @@ void Hw2Window::lights_changed() {
 		std::random_device rd;
 		std::default_random_engine rand(rd());
 		std::uniform_real_distribution<double> dist;
-		double const r{.15};
+		double const r{.20};
 		gl.lights[i].color = glm::vec3(dist(rand), dist(rand), dist(rand)) / 2.0f + .5f;
 		gl.lights[i].power = dist(rand) * .02;
 		gl.lights[i].speed = (dist(rand) * 4 + 8) * M_PI / 5;
 		gl.lights[i].radius = r;
-		gl.lights[i].angle = 0;
 	}
 }
 

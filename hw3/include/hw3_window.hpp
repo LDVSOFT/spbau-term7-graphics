@@ -60,10 +60,10 @@ private:
 			float power;
 			float speed;
 			float radius;
-			double angle{0};
 		};
 
-		std::unique_ptr<SceneObject> statue;
+		static int constexpr acolytes_count{6};
+		std::unique_ptr<SceneObject> statue, acolytes[acolytes_count], base_plane;
 
 		std::unique_ptr<SceneObject> light_sphere, texture_rect;
 		std::vector<light> lights;

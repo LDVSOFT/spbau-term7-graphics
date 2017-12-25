@@ -64,20 +64,20 @@ Hw2Window::Hw2Window(
 
 	area->set_has_depth_buffer();
 	/* options */ {
-		/* scene */ {
-			static_assert(SCENE == 0);
+		/* deferred */ {
+			static_assert(DEFERRED == 0);
 			auto &row{*display_mode_list_store->append()};
-			row.set_value<Glib::ustring>(0, "Scene");
+			row.set_value<Glib::ustring>(0, "Deferred");
 		}
 		/* scene: lights */ {
-			static_assert(SCENE_LIGHTS == 1);
+			static_assert(DEFERRED_LIGHTS == 1);
 			auto &row{*display_mode_list_store->append()};
-			row.set_value<Glib::ustring>(0, "Scene + light shperes");
+			row.set_value<Glib::ustring>(0, "Deferred + light shperes");
 		}
 		/* scene: lights (culled) */ {
-			static_assert(SCENE_LIGHTS_CULLED == 2);
+			static_assert(DEFERRED_LIGHTS_CULLED == 2);
 			auto &row{*display_mode_list_store->append()};
-			row.set_value<Glib::ustring>(0, "Scene + light shperes (culled)");
+			row.set_value<Glib::ustring>(0, "Deferred + light shperes (culled)");
 		}
 		/* buffer: albedo */ {
 			static_assert(BUFFER_ALBEDO == 3);
@@ -94,13 +94,13 @@ Hw2Window::Hw2Window(
 			auto &row{*display_mode_list_store->append()};
 			row.set_value<Glib::ustring>(0, "Buffer: depth");
 		}
-		/* deferred */ {
-			static_assert(DEFERRED == 6);
+		/* scene */ {
+			static_assert(SCENE_SINGLE_LIGHT == 6);
 			auto &row{*display_mode_list_store->append()};
-			row.set_value<Glib::ustring>(0, "Deferred");
+			row.set_value<Glib::ustring>(0, "Scene (single light)");
 		}
 
-		display_mode_combobox->set_active(SCENE);
+		display_mode_combobox->set_active(DEFERRED);
 	}
 
 	area->signal_realize  ().connect(sigc::mem_fun(*this, &Hw2Window::gl_init));
@@ -365,24 +365,23 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 			area->set_error(Error(hw3_error_quark, 0, "TMP"));
 			return false;
 		}
-		glClear(GL_COLOR_BUFFER_BIT);
 	}
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	switch (display_mode_combobox->get_active_row_number()) {
-	case SCENE:
-		gl_render_buffer(*gl.scene_program, get_camera_view(), cam_proj);
+	case DEFERRED:
+		gl_render_deferred(get_camera_view(), cam_proj);
 		break;
-	case SCENE_LIGHTS:
+	case DEFERRED_LIGHTS:
+		gl_render_deferred(get_camera_view(), cam_proj);
 		gl_render_lights(get_camera_view(), cam_proj);
-		gl_render_buffer(*gl.scene_program, get_camera_view(), cam_proj);
 		break;
-	case SCENE_LIGHTS_CULLED:
+	case DEFERRED_LIGHTS_CULLED:
+		gl_render_deferred(get_camera_view(), cam_proj);
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_FRONT);
 		gl_render_lights(get_camera_view(), cam_proj);
 		glDisable(GL_CULL_FACE);
-		gl_render_buffer(*gl.scene_program, get_camera_view(), cam_proj);
 		break;
 	case BUFFER_ALBEDO:
 		gl_render_texture(0);
@@ -393,20 +392,9 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	case BUFFER_DEPTH:
 		gl_render_texture(2);
 		break;
-	case DEFERRED:
-		glDisable(GL_DEPTH_TEST);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_ONE, GL_ONE);
-		glBlendEquation(GL_FUNC_ADD);
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_FRONT);
-
-		gl_render_texture(3);
-		gl_render_deferred(get_camera_view(), cam_proj);
-
-		glDisable(GL_CULL_FACE);
-		glDisable(GL_BLEND);
-		glEnable(GL_DEPTH_TEST);
+	case SCENE_SINGLE_LIGHT:
+		gl_render_buffer(*gl.scene_program, get_camera_view(), cam_proj);
+		break;
 	}
 
 	if (useDebug) {
@@ -469,29 +457,46 @@ void Hw2Window::gl_render_texture(int id) {
 }
 
 void Hw2Window::gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj) {
-	gl.deferred_program->use();
+	glDepthFunc(GL_ALWAYS);
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, gl.albedo_texture);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, gl.normal_texture);
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, gl.depth_texture);
+	/* dissuse */
+	gl_render_texture(3);
 
-	glUniform1i(gl.deferred_program->get_uniform("albedo_texture"), 0);
-	glUniform1i(gl.deferred_program->get_uniform("normal_texture"), 1);
-	glUniform1i(gl.deferred_program->get_uniform("depth_texture"), 2);
+	/* lights */ {
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_ONE, GL_ONE);
+		glBlendEquation(GL_FUNC_ADD);
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
+		gl.deferred_program->use();
 
-	gl_draw_lights(*gl.deferred_program, view, proj);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, gl.albedo_texture);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, gl.normal_texture);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, gl.depth_texture);
 
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, 0);
+		glUniform1i(gl.deferred_program->get_uniform("albedo_texture"), 0);
+		glUniform1i(gl.deferred_program->get_uniform("normal_texture"), 1);
+		glUniform1i(gl.deferred_program->get_uniform("depth_texture"), 2);
 
-	glUseProgram(0);
+		gl_draw_lights(*gl.deferred_program, view, proj);
+
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		glUseProgram(0);
+
+		glDisable(GL_CULL_FACE);
+		glDisable(GL_BLEND);
+	}
+
+	glDepthFunc(GL_LESS);
 }
 
 void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {

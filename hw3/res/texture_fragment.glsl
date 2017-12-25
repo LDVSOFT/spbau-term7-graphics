@@ -10,6 +10,7 @@ in vec2 fragment_position;
 out vec3 output_color;
 
 void main() {
+	gl_FragDepth = 1;
 	if (id == 0)
 		output_color = texture(albedo, fragment_position).rgb;
 	if (id == 1)

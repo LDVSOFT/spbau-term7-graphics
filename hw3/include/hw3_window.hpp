@@ -33,13 +33,13 @@ private:
 	Glib::RefPtr<Gtk::Adjustment> lights_adjustment;
 
 	enum display_mode_t {
-		SCENE,
-		SCENE_LIGHTS,
-		SCENE_LIGHTS_CULLED,
+		DEFERRED,
+		DEFERRED_LIGHTS,
+		DEFERRED_LIGHTS_CULLED,
 		BUFFER_ALBEDO,
 		BUFFER_NORMAL,
 		BUFFER_DEPTH,
-		DEFERRED
+		SCENE_SINGLE_LIGHT
 	};
 
 	struct _gl {

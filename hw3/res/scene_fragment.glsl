@@ -14,7 +14,6 @@ in vec3 fragment_tolight_camera;
 out vec3 output_color;
 
 void main() {
-//	vec3 diffuse_color = vec3(1, 1, 1);
 	vec3 diffuse_color = fragment_color;
 	vec3 ambient_color = 0.15 * diffuse_color;
 	vec3 specular_color = vec3(.1, .1, .1);

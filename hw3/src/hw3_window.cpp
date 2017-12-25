@@ -435,6 +435,8 @@ void Hw2Window::gl_render_lights(glm::mat4 const &view, glm::mat4 const &proj) {
 }
 
 void Hw2Window::gl_render_texture(int id) {
+	glDepthFunc(GL_ALWAYS);
+
 	gl.texture_program->use();
 
 	glActiveTexture(GL_TEXTURE0);
@@ -459,15 +461,16 @@ void Hw2Window::gl_render_texture(int id) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glUseProgram(0);
+
+	glDepthFunc(GL_LESS);
 }
 
 void Hw2Window::gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj) {
-	glDepthFunc(GL_ALWAYS);
-
 	/* dissuse */
 	gl_render_texture(3);
 
 	/* lights */ {
+		glDepthFunc(GL_ALWAYS);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_ONE, GL_ONE);
 		glBlendEquation(GL_FUNC_ADD);
@@ -499,9 +502,8 @@ void Hw2Window::gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj)
 
 		glDisable(GL_CULL_FACE);
 		glDisable(GL_BLEND);
+		glDepthFunc(GL_LESS);
 	}
-
-	glDepthFunc(GL_LESS);
 }
 
 void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {

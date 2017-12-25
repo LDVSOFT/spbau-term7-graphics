@@ -25,8 +25,8 @@ void main() {
 	if (depth_camera_norm == 1.0)
 		discard;
 
+	gl_FragDepth = depth_camera_norm;
 	vec3 position_proj = vec3(position_in_texture, depth_camera_norm) * 2 - vec3(1, 1, 1);
-	gl_FragDepth = position_proj.z;
 	vec4 position_world_pre = vp_inv * vec4(position_proj, 1);
 	vec4 position_camera_pre = p_inv * vec4(position_proj, 1);
 	position_world_pre /= position_world_pre.w;

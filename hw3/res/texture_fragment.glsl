@@ -17,6 +17,8 @@ void main() {
 		output_color = texture(normal, fragment_position).xyz / 2 + vec3(.5, .5, .5);
 	if (id == 2)
 		output_color = vec3(1, 1, 1) * texture(depth, fragment_position).r;
-	if (id == 3)
+	if (id == 3) {
 		output_color = texture(albedo, fragment_position).rgb * .15;
+		gl_FragDepth = texture(depth , fragment_position).r;
+	}
 }

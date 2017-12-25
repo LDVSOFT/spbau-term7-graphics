@@ -9,6 +9,7 @@
 #include <glm/gtx/transform.hpp>
 
 #include <iostream>
+#include <random>
 
 using Gdk::GLContext;
 using Gio::Resource;
@@ -103,6 +104,8 @@ Hw2Window::Hw2Window(
 		display_mode_combobox->set_active(DEFERRED);
 	}
 
+	lights_adjustment->set_value(1);
+
 	area->signal_realize  ().connect(sigc::mem_fun(*this, &Hw2Window::gl_init));
 	area->signal_unrealize().connect(sigc::mem_fun(*this, &Hw2Window::gl_finit), false);
 	area->signal_render   ().connect(sigc::mem_fun(*this, &Hw2Window::gl_render));
@@ -117,16 +120,18 @@ Hw2Window::Hw2Window(
 	animate->signal_toggled().connect(sigc::mem_fun(*this, &Hw2Window::animate_toggled));
 	reset_position->signal_clicked ().connect(sigc::mem_fun(*this, &Hw2Window::reset_position_clicked));
 	reset_animation->signal_clicked().connect(sigc::mem_fun(*this, &Hw2Window::reset_animation_clicked));
+	lights_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw2Window::lights_changed));
 	display_mode_combobox->signal_changed().connect(sigc::mem_fun(*this, &Hw2Window::display_mode_changed));
 
-	gl.lights.resize(1);
+/*	gl.lights.resize(1);
 	gl.lights[0].position = glm::vec3(0, .1, .5);
 	gl.lights[0].color = glm::vec3(1, 1, 1);
 	gl.lights[0].power = .01;
-	gl.lights[0].radius = .1;
+	gl.lights[0].radius = .1;*/
 
-	view_range = .3;
+	view_range = .2;
 
+	lights_changed();
 	reset_position_clicked();
 	reset_animation_clicked();
 }
@@ -245,16 +250,16 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	glGetIntegerv(GL_VIEWPORT, old_vp);
 
 	/* animate */ {
-		double
-			a{cos(animation.progress * 10 * M_PI) * M_PI / 6},
-			b{animation.progress * 30 * M_PI},
-			r{.1};
-		//std::cout << animation.progress << " " << a << " " << b << std::endl;
-		gl.lights[0].position = glm::vec3(
-			r * cos(a) * sin(b),
-			.1 + r * sin(a),
-			r * cos(a) * cos(b)
-		);
+		for (auto &light: gl.lights) {
+			double angle(fmod(animation.progress * light.speed, 2 * M_PI));
+			double a{cos(angle) * M_PI / 6};
+			double b{angle * 3 * light.speed};
+			light.position = glm::vec3(
+				light.radius * cos(a) * sin(b),
+				light.radius * sin(a) + .1,
+				light.radius * cos(a) * cos(b)
+			);
+		}
 
 		gl.statue->animation_position = glm::translate(glm::vec3(
 			0,
@@ -586,7 +591,7 @@ void Hw2Window::tick(gint64 new_time) {
 			animation.state = animation.STARTED;
 			break;
 		case animation.STARTED:
-			animation.progress = fmod(animation.start_progress + seconds_delta * animation.progress_per_second, 1);
+			animation.progress = animation.start_progress + seconds_delta * animation.progress_per_second;
 			area->queue_render();
 			break;
 		default:
@@ -625,6 +630,22 @@ void Hw2Window::tick(gint64 new_time) {
 			navigation.camera_position += glm::vec3(inverse(get_camera_view()) * glm::vec4(direction, 0));
 			area->queue_render();
 		}
+	}
+}
+
+void Hw2Window::lights_changed() {
+	size_t new_size(lights_adjustment->get_value()), old_size{gl.lights.size()};
+	gl.lights.resize(new_size);
+	for (size_t i{old_size}; i < new_size; ++i) {
+		std::random_device rd;
+		std::default_random_engine rand(rd());
+		std::uniform_real_distribution<double> dist;
+		double const r{.15};
+		gl.lights[i].color = glm::vec3(dist(rand), dist(rand), dist(rand)) / 2.0f + .5f;
+		gl.lights[i].power = dist(rand) * .02;
+		gl.lights[i].speed = (dist(rand) * 4 + 8) * M_PI / 5;
+		gl.lights[i].radius = r;
+		gl.lights[i].angle = 0;
 	}
 }
 

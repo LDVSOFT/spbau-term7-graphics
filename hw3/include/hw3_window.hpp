@@ -60,6 +60,7 @@ private:
 			float power;
 			float speed;
 			float radius;
+			double angle{0};
 		};
 
 		std::unique_ptr<SceneObject> statue;
@@ -110,6 +111,7 @@ private:
 	void animate_toggled();
 	void reset_position_clicked();
 	void reset_animation_clicked();
+	void lights_changed();
 	void display_mode_changed();
 	bool mouse_pressed(GdkEventButton *event);
 	bool mouse_released(GdkEventButton *event);

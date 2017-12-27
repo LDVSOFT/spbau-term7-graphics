@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
 //	}
 
 	try {
-		auto app{Hw2App::create(argc, argv)};
+		auto app{Hw3App::create(argc, argv)};
 		app->run();
 	} catch (Glib::Error &e) {
 		std::cerr << e.what() << std::endl;

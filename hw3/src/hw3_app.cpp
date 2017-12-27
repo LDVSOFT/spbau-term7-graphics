@@ -3,19 +3,19 @@
 using Glib::RefPtr;
 using Gtk::Application;
 
-RefPtr<Hw2App> Hw2App::create(int argc, char *argv[]) {
-	return RefPtr<Hw2App>(new Hw2App(argc, argv));
+RefPtr<Hw3App> Hw3App::create(int argc, char *argv[]) {
+	return RefPtr<Hw3App>(new Hw3App(argc, argv));
 }
 
-Hw2App::Hw2App(int argc, char *argv[]):
+Hw3App::Hw3App(int argc, char *argv[]):
 	Application(argc, argv, "net.ldvsoft.spbau.gl") {}
 
-Hw2App::~Hw2App() = default;
+Hw3App::~Hw3App() = default;
 
-void Hw2App::on_activate() {
+void Hw3App::on_activate() {
 	Application::on_activate();
 	
-	auto window{Hw2Window::create()};
+	auto window{Hw3Window::create()};
 	window->show();
 	add_window(*window);
 

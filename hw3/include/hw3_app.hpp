@@ -6,12 +6,12 @@
 
 #include <memory>
 
-class Hw2App: public Gtk::Application {
+class Hw3App: public Gtk::Application {
 private:
-	Hw2App(int argc, char *argv[]);
-	virtual ~Hw2App() override;
+	Hw3App(int argc, char *argv[]);
+	virtual ~Hw3App() override;
 
 	virtual void on_activate() override;
 public:
-	static Glib::RefPtr<Hw2App> create(int argc, char *argv[]);
+	static Glib::RefPtr<Hw3App> create(int argc, char *argv[]);
 };

@@ -2,4 +2,4 @@
 
 using Glib::Quark;
 
-Quark const hw3_error_quark("Hw2 failure.");
+Quark const hw3_error_quark("Hw3 failure.");

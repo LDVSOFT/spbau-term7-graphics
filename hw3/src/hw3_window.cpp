@@ -22,12 +22,12 @@ using Gtk::Builder;
 using Gtk::Window;
 using std::unique_ptr;
 
-unique_ptr<Hw2Window> Hw2Window::create() {
+unique_ptr<Hw3Window> Hw3Window::create() {
 	auto builder{Gtk::Builder::create_from_resource("/net/ldvsoft/spbau/gl/hw3_window.ui")};
-	Hw2Window *result;
-	builder->get_widget_derived("Hw2Window", result);
+	Hw3Window *result;
+	builder->get_widget_derived("Hw3Window", result);
 
-	return unique_ptr<Hw2Window>(result);
+	return unique_ptr<Hw3Window>(result);
 }
 
 [[maybe_unused]]
@@ -40,11 +40,11 @@ static void check(std::string const &name) {
 }
 
 static gboolean tick_wrapper(GtkWidget *, GdkFrameClock *clock, gpointer data) {
-	static_cast<Hw2Window *>(data)->tick(gdk_frame_clock_get_frame_time(clock));
+	static_cast<Hw3Window *>(data)->tick(gdk_frame_clock_get_frame_time(clock));
 	return G_SOURCE_CONTINUE;
 }
 
-Hw2Window::Hw2Window(
+Hw3Window::Hw3Window(
 	BaseObjectType *type,
 	RefPtr<Builder> const &builder
 ):
@@ -106,22 +106,22 @@ Hw2Window::Hw2Window(
 
 	lights_adjustment->set_value(1);
 
-	area->signal_realize  ().connect(sigc::mem_fun(*this, &Hw2Window::gl_init));
-	area->signal_unrealize().connect(sigc::mem_fun(*this, &Hw2Window::gl_finit), false);
-	area->signal_render   ().connect(sigc::mem_fun(*this, &Hw2Window::gl_render));
+	area->signal_realize  ().connect(sigc::mem_fun(*this, &Hw3Window::gl_init));
+	area->signal_unrealize().connect(sigc::mem_fun(*this, &Hw3Window::gl_finit), false);
+	area->signal_render   ().connect(sigc::mem_fun(*this, &Hw3Window::gl_render));
 
-	area_eventbox->signal_button_press_event  ().connect(sigc::mem_fun(*this, &Hw2Window::mouse_pressed));
-	area_eventbox->signal_button_release_event().connect(sigc::mem_fun(*this, &Hw2Window::mouse_pressed));
-	area_eventbox->signal_motion_notify_event ().connect(sigc::mem_fun(*this, &Hw2Window::mouse_moved));
+	area_eventbox->signal_button_press_event  ().connect(sigc::mem_fun(*this, &Hw3Window::mouse_pressed));
+	area_eventbox->signal_button_release_event().connect(sigc::mem_fun(*this, &Hw3Window::mouse_pressed));
+	area_eventbox->signal_motion_notify_event ().connect(sigc::mem_fun(*this, &Hw3Window::mouse_moved));
 
-	signal_key_press_event  ().connect(sigc::mem_fun(*this, &Hw2Window::key_pressed));
-	signal_key_release_event().connect(sigc::mem_fun(*this, &Hw2Window::key_released));
+	signal_key_press_event  ().connect(sigc::mem_fun(*this, &Hw3Window::key_pressed));
+	signal_key_release_event().connect(sigc::mem_fun(*this, &Hw3Window::key_released));
 
-	animate->signal_toggled().connect(sigc::mem_fun(*this, &Hw2Window::animate_toggled));
-	reset_position->signal_clicked ().connect(sigc::mem_fun(*this, &Hw2Window::reset_position_clicked));
-	reset_animation->signal_clicked().connect(sigc::mem_fun(*this, &Hw2Window::reset_animation_clicked));
-	lights_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw2Window::lights_changed));
-	display_mode_combobox->signal_changed().connect(sigc::mem_fun(*this, &Hw2Window::display_mode_changed));
+	animate->signal_toggled().connect(sigc::mem_fun(*this, &Hw3Window::animate_toggled));
+	reset_position->signal_clicked ().connect(sigc::mem_fun(*this, &Hw3Window::reset_position_clicked));
+	reset_animation->signal_clicked().connect(sigc::mem_fun(*this, &Hw3Window::reset_animation_clicked));
+	lights_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw3Window::lights_changed));
+	display_mode_combobox->signal_changed().connect(sigc::mem_fun(*this, &Hw3Window::display_mode_changed));
 
 /*	gl.lights.resize(1);
 	gl.lights[0].position = glm::vec3(0, .1, .5);
@@ -136,11 +136,11 @@ Hw2Window::Hw2Window(
 	reset_animation_clicked();
 }
 
-Hw2Window::~Hw2Window() {
+Hw3Window::~Hw3Window() {
 	gtk_widget_remove_tick_callback(GTK_WIDGET(area->gobj()), ticker_id);
 }
 
-void Hw2Window::gl_init() {
+void Hw3Window::gl_init() {
 	area->make_current();
 	if (area->has_error())
 		return;
@@ -235,7 +235,7 @@ void Hw2Window::gl_init() {
 	std::cout << "Rendering on " << glGetString(GL_RENDERER) << std::endl;
 }
 
-void Hw2Window::gl_finit() {
+void Hw3Window::gl_finit() {
 	area->make_current();
 	if (area->has_error())
 		return;
@@ -251,7 +251,7 @@ void Hw2Window::gl_finit() {
 	gl.scene_program = nullptr;
 }
 
-bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
+bool Hw3Window::gl_render(RefPtr<GLContext> const &context) {
 	static_cast<void>(context);
 
 	if (area->has_error())
@@ -426,7 +426,7 @@ bool Hw2Window::gl_render(RefPtr<GLContext> const &context) {
 	return false;
 }
 
-void Hw2Window::gl_render_buffer(Program const &program, glm::mat4 const &view, glm::mat4 const &proj) {
+void Hw3Window::gl_render_buffer(Program const &program, glm::mat4 const &view, glm::mat4 const &proj) {
 	program.use();
 
 	glUniform3fv(program.get_uniform("light_world"), 1, &gl.lights[0].position[0]);
@@ -439,7 +439,7 @@ void Hw2Window::gl_render_buffer(Program const &program, glm::mat4 const &view, 
 	glUseProgram(0);
 }
 
-void Hw2Window::gl_render_lights(glm::mat4 const &view, glm::mat4 const &proj) {
+void Hw3Window::gl_render_lights(glm::mat4 const &view, glm::mat4 const &proj) {
 	gl.light_program->use();
 
 	gl_draw_lights(*gl.light_program, view, proj);
@@ -447,7 +447,7 @@ void Hw2Window::gl_render_lights(glm::mat4 const &view, glm::mat4 const &proj) {
 	glUseProgram(0);
 }
 
-void Hw2Window::gl_render_texture(int id) {
+void Hw3Window::gl_render_texture(int id) {
 	glDepthFunc(GL_ALWAYS);
 
 	gl.texture_program->use();
@@ -478,7 +478,7 @@ void Hw2Window::gl_render_texture(int id) {
 	glDepthFunc(GL_LESS);
 }
 
-void Hw2Window::gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj) {
+void Hw3Window::gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj) {
 	/* dissuse */
 	gl_render_texture(3);
 
@@ -519,14 +519,14 @@ void Hw2Window::gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj)
 	}
 }
 
-void Hw2Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
+void Hw3Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
 	gl_draw_object(*gl.statue, program, v, p);
 	gl_draw_object(*gl.base_plane, program, v, p);
 	for (int i{0}; i != gl.acolytes_count; ++i)
 		gl_draw_object(*gl.acolytes[i], program, v, p);
 }
 
-void Hw2Window::gl_draw_lights(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
+void Hw3Window::gl_draw_lights(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
 	for (auto const &light: gl.lights) {
 		gl.light_sphere->position =
 			glm::translate(glm::mat4(), light.position)
@@ -541,7 +541,7 @@ void Hw2Window::gl_draw_lights(Program const &program, glm::mat4 const &v, glm::
 	}
 }
 
-void Hw2Window::gl_draw_object(
+void Hw3Window::gl_draw_object(
 	SceneObject const &object,
 	Program const &program,
 	glm::mat4 const &v,
@@ -569,13 +569,13 @@ void Hw2Window::gl_draw_object(
 	);
 }
 
-glm::mat4 Hw2Window::get_camera_view() const {
+glm::mat4 Hw3Window::get_camera_view() const {
 	return glm::rotate(navigation.yangle, glm::vec3(1, 0, 0)) *
 		glm::rotate(navigation.xangle, glm::vec3(0, -1, 0)) *
 		glm::translate(-navigation.camera_position);
 }
 
-void Hw2Window::animate_toggled() {
+void Hw3Window::animate_toggled() {
 	bool state{animate->get_active()};
 	if (state) {
 		animation.state = animation.PENDING;
@@ -584,21 +584,21 @@ void Hw2Window::animate_toggled() {
 	}
 }
 
-void Hw2Window::reset_position_clicked() {
+void Hw3Window::reset_position_clicked() {
 	navigation.xangle = 0;
 	navigation.yangle = 0;
 	navigation.camera_position = glm::vec3(0, .2, .2);
 	area->queue_render();
 }
 
-void Hw2Window::reset_animation_clicked() {
+void Hw3Window::reset_animation_clicked() {
 	animation.progress = 0;
 	if (animation.state == animation.STARTED)
 		animation.state = animation.PENDING;
 	area->queue_render();
 }
 
-void Hw2Window::tick(gint64 new_time) {
+void Hw3Window::tick(gint64 new_time) {
 	gint64 delta{new_time - animation.start_time};
 	double seconds_delta{delta / static_cast<double>(G_USEC_PER_SEC)};
 	/* animation */ {
@@ -651,7 +651,7 @@ void Hw2Window::tick(gint64 new_time) {
 	}
 }
 
-void Hw2Window::lights_changed() {
+void Hw3Window::lights_changed() {
 	size_t new_size(lights_adjustment->get_value()), old_size{gl.lights.size()};
 	gl.lights.resize(new_size);
 	for (size_t i{old_size}; i < new_size; ++i) {
@@ -666,11 +666,11 @@ void Hw2Window::lights_changed() {
 	}
 }
 
-void Hw2Window::display_mode_changed() {
+void Hw3Window::display_mode_changed() {
 	area->queue_render();
 }
 
-bool Hw2Window::mouse_pressed(GdkEventButton *event) {
+bool Hw3Window::mouse_pressed(GdkEventButton *event) {
 	navigation.pressed = true;
 	navigation.start_xangle = navigation.xangle;
 	navigation.start_yangle = navigation.yangle;
@@ -679,13 +679,13 @@ bool Hw2Window::mouse_pressed(GdkEventButton *event) {
 	return false;
 }
 
-bool Hw2Window::mouse_released(GdkEventButton *event) {
+bool Hw3Window::mouse_released(GdkEventButton *event) {
 	static_cast<void>(event);
 	navigation.pressed = false;
 	return false;
 }
 
-bool Hw2Window::mouse_moved(GdkEventMotion *event) {
+bool Hw3Window::mouse_moved(GdkEventMotion *event) {
 	if (!navigation.pressed)
 		return false;
 
@@ -705,7 +705,7 @@ bool Hw2Window::mouse_moved(GdkEventMotion *event) {
 	return false;
 }
 
-bool Hw2Window::key_pressed(GdkEventKey *event) {
+bool Hw3Window::key_pressed(GdkEventKey *event) {
 	switch (event->keyval) {
 	case GDK_KEY_a:
 		navigation.to_left = true;
@@ -729,7 +729,7 @@ bool Hw2Window::key_pressed(GdkEventKey *event) {
 	return false;
 }
 
-bool Hw2Window::key_released(GdkEventKey *event) {
+bool Hw3Window::key_released(GdkEventKey *event) {
 	switch (event->keyval) {
 	case GDK_KEY_a:
 		navigation.to_left = false;

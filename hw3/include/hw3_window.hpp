@@ -19,7 +19,7 @@
 
 #include <memory>
 
-class Hw2Window: public Gtk::Window {
+class Hw3Window: public Gtk::Window {
 private:
 	Glib::RefPtr<Gtk::Builder> builder;
 
@@ -120,10 +120,10 @@ private:
 	bool key_released(GdkEventKey *event);
 
 public:
-	static std::unique_ptr<Hw2Window> create();
+	static std::unique_ptr<Hw3Window> create();
 
-	Hw2Window(BaseObjectType *type, Glib::RefPtr<Gtk::Builder> const &builder);
-	~Hw2Window() override;
+	Hw3Window(BaseObjectType *type, Glib::RefPtr<Gtk::Builder> const &builder);
+	~Hw3Window() override;
 
 	void tick(gint64 time);
 };

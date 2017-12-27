@@ -15,7 +15,7 @@
 		<property name="step_increment">1</property>
 		<property name="page_increment">10</property>
 	</object>
-	<object class="GtkApplicationWindow" id="Hw2Window">
+	<object class="GtkApplicationWindow" id="Hw3Window">
 		<property name="can_focus">False</property>
 		<property name="events">GDK_KEY_PRESS_MASK</property>
 		<property name="border_width">6</property>

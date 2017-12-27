@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+	<gresource prefix="/net/ldvsoft/spbau/gl">
+		<file preprocess="xml-stripblanks">hw4_window.ui</file>
+
+		<file>buffer_fragment.glsl</file>
+		<file>buffer_vertex.glsl</file>
+		<file>deferred_fragment.glsl</file>
+		<file>deferred_vertex.glsl</file>
+		<file>light_fragment.glsl</file>
+		<file>light_vertex.glsl</file>
+		<file>scene_fragment.glsl</file>
+		<file>scene_vertex.glsl</file>
+		<file>texture_fragment.glsl</file>
+		<file>texture_vertex.glsl</file>
+
+		<file>light_sphere.obj</file>
+		<file>texture_rect.obj</file>
+		<file>stanford_bunny.obj</file>
+		<file>plane.obj</file>
+	</gresource>
+</gresources>

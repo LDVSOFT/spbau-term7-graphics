@@ -1,5 +1,6 @@
 bin/*.o
 hw4
 src/hw4_resources.cpp
+src/marching_geometry_data.cpp
 Makefile.*
 *.trace

@@ -23,10 +23,15 @@ SRC = \
 	$(SRCDIR)/scene_object.cpp \
 	$(SRCDIR)/object.cpp \
 	$(SRCDIR)/program.cpp
-GEN = $(SRCDIR)/hw4_resources.cpp
+GEN_RES = $(SRCDIR)/hw4_resources.cpp
+GEN_DAT = $(SRCDIR)/marching_geometry_data.cpp
 BIN = hw4
 
-SRCS = $(GEN) $(SRC)
+GENERATED = $(OBJS) \
+	Makefile.deps \
+	$(BIN) $(GEN_RES) $(GEN_DAT) $(BINDIR) \
+
+SRCS = $(GEN_RES) $(GEN_DAT) $(SRC)
 OBJS = $(SRCS:$(SRCDIR)/%.cpp=$(BINDIR)/%.o)
 
 .PHONY: all
@@ -42,7 +47,11 @@ LFLAGS = $(shell $(PKGCONFIG) --libs   $(LIBS))
 GLIB_COMPILE_RESOURCES = $(shell $(PKGCONFIG) --variable=glib_compile_resources gio-2.0)
 GLIB_COMPILE_SCHEMAS   = $(shell $(PKGCONFIG) --variable=glib_compile_schemas gio-2.0)
 
-$(GEN): $(RESDIR)/hw4.gresource.xml $(shell $(GLIB_COMPILE_RESOURCES) --sourcedir=$(RESDIR) --generate-dependencies $(RESDIR)/hw4.gresource.xml)
+$(GEN_DAT): $(RESDIR)/marching_geometry_data.py
+	$(VERBinfo) '\tDATA\t'$@
+	$(VERBpref)$< > $@
+
+$(GEN_RES): $(RESDIR)/hw4.gresource.xml $(patsubst %,$(RESDIR)/%,$(shell $(GLIB_COMPILE_RESOURCES) --generate-dependencies $(RESDIR)/hw4.gresource.xml))
 	$(VERBinfo) '\tGLIB RESOURCES\t'$@
 	$(VERBpref)$(GLIB_COMPILE_RESOURCES) --sourcedir=$(RESDIR) --target=$@ --generate-source $<
 
@@ -60,8 +69,8 @@ $(BINDIR):
 
 .PHONY: clean mrpropper
 clean:
-	$(VERBinfo) '\tCLEAN\t' $(GEN) $(OBJS) $(BIN) Makefile.deps
-	$(VERBpref)rm -rf $(GEN) $(OBJS) $(BIN) Makefile.deps $(BINDIR)
+	$(VERBinfo) '\tCLEAN\t' $(GENERATED)
+	$(VERBpref)rm -rf $(GENERATED)
 
 mrpropper: clean
 	$(VERBinfo) '\tCLEAN\t' Makefile.dummy

@@ -3,7 +3,6 @@
 #include "scene_object.hpp"
 #include "program.hpp"
 
-#define GLM_FORCE_SWIZZLE
 #include <glm/mat4x4.hpp>
 
 #include <gtkmm/builder.h>
@@ -30,43 +29,31 @@ private:
 	Gtk::Button *reset_position, *reset_animation;
 
 	Glib::RefPtr<Gtk::ListStore> display_mode_list_store;
-	Glib::RefPtr<Gtk::Adjustment> lights_adjustment;
+	Glib::RefPtr<Gtk::Adjustment> spheres_adjustment;
 
 	enum display_mode_t {
-		DEFERRED,
-		DEFERRED_LIGHTS,
-		DEFERRED_LIGHTS_CULLED,
-		BUFFER_ALBEDO,
-		BUFFER_NORMAL,
-		BUFFER_DEPTH,
-		SCENE_SINGLE_LIGHT
+		MARCHING_CUBES
 	};
 
 	struct _gl {
 		std::unique_ptr<Program>
-			buffer_program,
-			deferred_program,
-			light_program,
-			scene_program,
-			texture_program;
+			marching_program;
 
 		static float constexpr fov{60};
 		GLuint framebuffer;
-		GLuint albedo_texture, normal_texture, depth_texture;
+		GLuint
+			geometry_base_positions,
+			geometry_edges,
+			geometry_case_sizes;
 
-		struct light {
+		struct sphere {
 			glm::vec3 position;
-			glm::vec3 color;
 			float power;
 			float speed;
 			float radius;
 		};
 
-		static int constexpr acolytes_count{6};
-		std::unique_ptr<SceneObject> statue, acolytes[acolytes_count], base_plane;
-
-		std::unique_ptr<SceneObject> light_sphere, texture_rect;
-		std::vector<light> lights;
+		std::vector<sphere> spheres;
 	} gl;
 
 	guint ticker_id;
@@ -98,20 +85,14 @@ private:
 	void gl_init();
 	void gl_finit();
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
-	void gl_render_buffer(Program const &program, glm::mat4 const &view, glm::mat4 const &proj);
-	void gl_render_lights(glm::mat4 const &view, glm::mat4 const &proj);
-	void gl_render_deferred(glm::mat4 const &view, glm::mat4 const &proj);
-	void gl_render_texture(int id);
-	void gl_draw_objects(Program const &program, glm::mat4 const &v, glm::mat4 const &p);
-	void gl_draw_lights(Program const &program, glm::mat4 const &v, glm::mat4 const &p);
-	void gl_draw_object(SceneObject const &object, Program const &program, glm::mat4 const &v, glm::mat4 const &p);
+	void gl_render_marching(glm::mat4 const &view, glm::mat4 const &proj);
 
 	glm::mat4 get_camera_view() const;
 
 	void animate_toggled();
 	void reset_position_clicked();
 	void reset_animation_clicked();
-	void lights_changed();
+	void spheres_changed();
 	void display_mode_changed();
 	bool mouse_pressed(GdkEventButton *event);
 	bool mouse_released(GdkEventButton *event);

@@ -1,9 +1,6 @@
 #pragma once
 
-#include <epoxy/gl.h>
-
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
+#include <glm/glm.hpp>
 
 #include <array>
 #include <ostream>
@@ -19,6 +16,7 @@ public:
 	};
 
 	static Object load(std::string const &obj);
+	static Object manual(std::vector<vertex_data> const &data, std::vector<glm::uvec3> const &elems);
 	friend std::ostream &operator<<(std::ostream &s, Object const &o);
 
 private:
@@ -26,7 +24,7 @@ private:
 
 public:
 	std::vector<vertex_data> verticies;
-	std::vector<std::array<GLuint, 3>> faces;
+	std::vector<glm::uvec3> faces;
 	
 	void recalculate_normals();
 	void normals_as_colors();

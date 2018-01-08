@@ -1,5 +1,7 @@
 #include "object.hpp"
 
+#include <epoxy/gl.h>
+
 #include <glm/gtx/vector_angle.hpp>
 
 #include <locale>
@@ -67,13 +69,20 @@ Object Object::load(std::string const &obj) {
 				verts.push_back(v_ids[id]);
 			}
 			for (size_t i{1}; i + 1 < verts.size(); ++i) {
-				result.faces.push_back({verts[0], verts[i], verts[i + 1]});
+				result.faces.emplace_back(verts[0], verts[i], verts[i + 1]);
 			}
 		} else {
 			std::cout << "UNKNOWN TYPE " << type << std::endl;
 		}
 	}
 	std::locale::global(old_locale);
+	return result;
+}
+
+Object Object::manual(std::vector<vertex_data> const &data, std::vector<glm::uvec3> const &elems) {
+	Object result;
+	result.verticies = data;
+	result.faces = elems;
 	return result;
 }
 

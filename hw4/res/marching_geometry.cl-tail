@@ -1,0 +1,184 @@
+float f(
+	float3 p,
+	float a,
+	float3 c
+) {
+	return a / pown(distance(c, p), 2);
+}
+
+float F(
+	float3 point,
+	int spheres,
+	global read_only float const a[],
+	global read_only float3 const c[],
+	float threshold
+) {
+	return length(point) - threshold;
+	float res = -threshold;
+	for (int i = 0; i != spheres; ++i)
+		res += f(point, a[i], c[i]);
+	return res;
+}
+
+kernel void fill_values_and_find_edges(
+	// 0-2: dimensions
+	int n, int m, int k,
+	// 3: work zone
+	float zone,
+	// 4: spheres count
+	int spheres,
+	// 5-6: spheres properties ([0..spheres)), 7: threshold
+	global read_only float a[], global read_only float3 c[], float threshold,
+	// 8: vertex values ([0..n][0..m][0..k]), 9: edge_used ([0..n][0..m][0..k][0..3))
+	global float values[], global write_only int edge_used[]
+) {
+	int x = get_global_id(0); // [0..n]
+	int y = get_global_id(1);
+	int z = get_global_id(2);
+
+	int v_line = n + 1;
+	int v_plane = v_line * (m + 1);
+
+	float3 point = (float3) (
+		(2 * x + .0) / n - 1,
+		(2 * y + .0) / m - 1,
+		(2 * z + .0) / k - 1
+	) * zone;
+	int point_id = z * v_plane + y * v_line + x;
+
+	float my_value = F(point, spheres, a, c, threshold);
+	values[z * v_plane + y * v_line + x] = my_value;
+
+	barrier(CLK_GLOBAL_MEM_FENCE);
+
+	if (x < n) {
+		float alt_value = values[z * v_plane + y * v_line + (x + 1)];
+		if ((alt_value >= 0) != (my_value >= 0)) {
+			int edge_id = 3 * point_id + 0;
+			edge_used[edge_id] = 1;
+		}
+	}
+	if (y < m) {
+		float alt_value = values[z * v_plane + (y + 1) * v_line + x];
+		if ((alt_value >= 0) != (my_value >= 0)) {
+			int edge_id = 3 * point_id + 1;
+			edge_used[edge_id] = 1;
+		}
+	}
+	if (z < k) {
+		float alt_value = values[(z + 1) * v_plane + y * v_line + x];
+		if ((alt_value >= 0) != (my_value >= 0)) {
+			int edge_id = 3 * point_id + 2;
+			edge_used[edge_id] = 1;
+		}
+	}
+}
+
+kernel void build_mesh(
+	// 0-2: dimensions
+	int n, int m, int k,
+	// 3: work zone
+	float zone,
+	// 4: vertex values ([0..n][0..m][0..k])
+	global read_only float values[],
+	// 5: vertex ids ([0..n][0..m][0..k] * 3) -> [0, max_id)
+	global read_only int vertex_ids[],
+	// 6: vertex pos ([0..max_id))
+	global float3 vertex_pos[],
+	// 7: vertex_norm ([0..n)[0..m)[0..k)[0..MAX_TRIANGLES)[0..3))
+	global write_only float3 vertex_norm[],
+	// 8: triangles vertex ids ([0..n)[0..m)[0..k)[0..MAX_TRIANGLES)[0..3))
+	global write_only int triangles[]
+) {
+	int x = get_global_id(0); // [0..n]
+	int y = get_global_id(1);
+	int z = get_global_id(2);
+	
+	float dx = zone / n;
+	float dy = zone / m;
+	float dz = zone / k;
+	
+	int v_line = n + 1;
+	int v_plane = v_line * (m + 1);
+	
+	float3 point = (float3) (
+		(2 * x + 1.0) / n - 1,
+		(2 * y + 1.0) / m - 1,
+		(2 * z + 1.0) / k - 1
+	) * zone;
+	int point_id = z * v_plane + y * v_line + x;
+
+	/* pos */ {
+		float my_value = values[z * v_plane + y * v_line + z];
+		if (x < n) {
+			float alt_value = values[z * v_plane + y * v_line + (x + 1)];
+			if ((alt_value >= 0) != (my_value >= 0)) {
+				int edge_id = 3 * point_id + 0;
+				vertex_pos[vertex_ids[edge_id]] = point + (
+					fabs(alt_value) * (float3)(-dx, -dy, -dz) + fabs(my_value) * (float3)(-dx, -dy, +dz)
+				) / (fabs(alt_value) + fabs(my_value));
+			}
+		}
+		if (y < m) {
+			float alt_value = values[z * v_plane + (y + 1) * v_line + x];
+			if ((alt_value >= 0) != (my_value >= 0)) {
+				int edge_id = 3 * point_id + 1;
+				vertex_pos[vertex_ids[edge_id]] = point + (
+					fabs(alt_value) * (float3)(-dx, -dy, -dz) + fabs(my_value) * (float3)(-dx, +dy, -dz)
+				) / (fabs(alt_value) + fabs(my_value));
+			}
+		}
+		if (z < k) {
+			float alt_value = values[(z + 1) * v_plane + y * v_line + x];
+			if ((alt_value >= 0) != (my_value >= 0)) {
+				int edge_id = 3 * point_id + 2;
+				vertex_pos[vertex_ids[edge_id]] = point + (
+					fabs(alt_value) * (float3)(-dx, -dy, -dz) + fabs(my_value) * (float3)(+dx, -dy, -dz)
+				) / (fabs(alt_value) + fabs(my_value));
+			}
+		}
+	}
+
+	barrier(CLK_GLOBAL_MEM_FENCE);
+	
+	if (x >= n || y >= m || z >= k)
+		return;
+
+	int c_line = n;
+	int c_plane = v_line * m;
+	int cube_id = z * c_plane + y * c_line + x;
+
+	int case_id = 0;
+	case_id |= (values[(z + 0) * v_plane + (y + 0) * v_line + (x + 0)] >= 0) << 0;
+	case_id |= (values[(z + 0) * v_plane + (y + 0) * v_line + (x + 1)] >= 0) << 1;
+	case_id |= (values[(z + 0) * v_plane + (y + 1) * v_line + (x + 0)] >= 0) << 2;
+	case_id |= (values[(z + 0) * v_plane + (y + 1) * v_line + (x + 1)] >= 0) << 3;
+	case_id |= (values[(z + 1) * v_plane + (y + 0) * v_line + (x + 0)] >= 0) << 4;
+	case_id |= (values[(z + 1) * v_plane + (y + 0) * v_line + (x + 1)] >= 0) << 5;
+	case_id |= (values[(z + 1) * v_plane + (y + 1) * v_line + (x + 0)] >= 0) << 6;
+	case_id |= (values[(z + 1) * v_plane + (y + 1) * v_line + (x + 1)] >= 0) << 7;
+
+	for (int i = 0; i < case_sizes[case_id]; ++i) {
+		int vertex[3];
+		for (int j = 0; j < 3; ++j) {
+			vertex[j] = vertex_by_edge(
+				n, m, k,
+				point_id,
+				edges[3 * MAX_TRIANGLES * case_id + i * 3 + j],
+				vertex_ids
+			);
+		}
+
+		float3 norm = normalize(cross(
+			vertex_pos[vertex[1]] - vertex_pos[vertex[0]],
+			vertex_pos[vertex[2]] - vertex_pos[vertex[1]]
+		));
+		for (int j = 0; j < 3; ++j) {
+			int write_id = (point_id * MAX_TRIANGLES + i) * 3 + j;
+			vertex_norm[write_id] = norm;
+			triangles[write_id] = vertex[j];
+		}
+	}
+}
+
+// vim: ft=opencl

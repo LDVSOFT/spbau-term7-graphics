@@ -54,7 +54,7 @@ void SceneObject::draw(
 	glUniformMatrix4fv(mv_inv_attribute , 1, GL_FALSE, &mv_inv [0][0]);
 	glUniformMatrix4fv(mvp_inv_attribute, 1, GL_FALSE, &mvp_inv[0][0]);
 
-	glDrawElements(GL_TRIANGLES, (elems_count + 3) * 3, GL_UNSIGNED_INT, nullptr);
+	glDrawElements(GL_TRIANGLES, elems_count * 3, GL_UNSIGNED_INT, nullptr);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);

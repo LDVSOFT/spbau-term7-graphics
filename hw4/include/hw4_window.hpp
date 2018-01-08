@@ -1,9 +1,15 @@
 #pragma once
 
+#define GLM_FORCE_SWIZZLE
+
+#define CL_HPP_TARGET_OPENCL_VERSION  120
+#define CL_HPP_MINIMUM_OPENCL_VERSION 120
+#define CL_HPP_ENABLE_EXCEPTIONS
+
 #include "scene_object.hpp"
 #include "program.hpp"
 
-#include <glm/mat4x4.hpp>
+#include <glm/glm.hpp>
 
 #include <gtkmm/builder.h>
 #include <gtkmm/button.h>
@@ -15,6 +21,7 @@
 #include <gtkmm/window.h>
 
 #include <epoxy/gl.h>
+#include <CL/cl2.hpp>
 
 #include <memory>
 
@@ -29,22 +36,25 @@ private:
 	Gtk::Button *reset_position, *reset_animation;
 
 	Glib::RefPtr<Gtk::ListStore> display_mode_list_store;
-	Glib::RefPtr<Gtk::Adjustment> spheres_adjustment;
+	Glib::RefPtr<Gtk::Adjustment>
+		spheres_adjustment,
+		threshold_adjustment,
+		xresolution_adjustment,
+		yresolution_adjustment,
+		zresolution_adjustment;
 
 	enum display_mode_t {
-		MARCHING_CUBES
+		MARCHING_CUBES,
+		SPHERES
 	};
 
 	struct _gl {
 		std::unique_ptr<Program>
-			marching_program;
+			marching_program,
+			spheres_program;
 
 		static float constexpr fov{60};
 		GLuint framebuffer;
-		GLuint
-			geometry_base_positions,
-			geometry_edges,
-			geometry_case_sizes;
 
 		struct sphere {
 			glm::vec3 position;
@@ -54,7 +64,17 @@ private:
 		};
 
 		std::vector<sphere> spheres;
+		std::unique_ptr<SceneObject> sphere, cube, mesh;
 	} gl;
+
+	struct _cl {
+		cl::Device device;
+		cl::Context context;
+		cl::CommandQueue queue;
+		cl::Kernel
+			fill_values_and_find_edges,
+			build_mesh;
+	} cl;
 
 	guint ticker_id;
 	float view_range;
@@ -86,6 +106,8 @@ private:
 	void gl_finit();
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
 	void gl_render_marching(glm::mat4 const &view, glm::mat4 const &proj);
+	void gl_render_spheres(glm::mat4 const &view, glm::mat4 const &proj);
+	void gl_draw_object(SceneObject const &object, Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 
 	glm::mat4 get_camera_view() const;
 
@@ -93,7 +115,7 @@ private:
 	void reset_position_clicked();
 	void reset_animation_clicked();
 	void spheres_changed();
-	void display_mode_changed();
+	void options_changed();
 	bool mouse_pressed(GdkEventButton *event);
 	bool mouse_released(GdkEventButton *event);
 	bool mouse_moved(GdkEventMotion *event);

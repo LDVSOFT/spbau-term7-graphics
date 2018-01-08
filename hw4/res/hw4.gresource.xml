@@ -4,7 +4,13 @@
 		<file preprocess="xml-stripblanks">hw4_window.ui</file>
 
 		<file>marching_fragment.glsl</file>
-		<file>marching_geometry.glsl</file>
 		<file>marching_vertex.glsl</file>
+		<file>spheres_fragment.glsl</file>
+		<file>spheres_vertex.glsl</file>
+		
+		<file>marching_geometry.cl</file>
+
+		<file>sphere.obj</file>
+		<file>cube.obj</file>
 	</gresource>
 </gresources>

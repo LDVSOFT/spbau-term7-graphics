@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from sys import stderr
 
 
 def popcount(x):
@@ -19,14 +20,10 @@ def index(what, where):
 
 
 def main():
-    max_triangles = 5
+    max_triangles = 4
     print('// CODE BELOW IS GENERATED')
-    print('#include "marching_geometry_data.hpp"')
     print()
-    print('namespace gl_data {')
-    print('\tusing namespace glm;')
-    print()
-    print('\tsize_t const MAX_TRIANGLES{', max_triangles, '};', sep='')
+    print('constant int MAX_TRIANGLES = ', max_triangles, ';', sep='')
     print()
 
     vertices = 8
@@ -45,16 +42,37 @@ def main():
         e.sort()
     edges = sorted(set(map(tuple, edges)))
 
-    print('\tsize_t const base_positions_count{', len(edges), '};', sep='')
-    print('\tvec3 const base_positions[base_positions_count] = {', sep='')
-    for e in edges:
-        pos = [(positions[e[0]][i] + positions[e[1]][i]) / 2.0 for i in range(3)]
-        print('\t\tvec3(', ', '.join(map(str, pos)), '),', sep='')
-    print('\t};')
-    print()
-
     def edge_id(a, b):
         return edges.index((min(a, b), max(a, b)))
+
+    print('int vertex_by_edge(')
+    print('\tint n, int m, int k,')
+    print('\tint point_id,')
+    print('\tint id, global read_only int vertex_ids[]')
+    print(') {')
+    print('\tint v_line = n + 1;')
+    print('\tint v_plane = v_line * (m + 1);')
+    print('\tswitch (id) {')
+    for i, e in enumerate(edges):
+        add = ''
+        final_add = ''
+        if positions[e[0]][0] != positions[e[1]][0]:  # x edge
+            final_add += ' + 0'
+        elif positions[e[0]][1] != positions[e[1]][1]:  # y edge
+            final_add += ' + 1'
+        else:  # z edge
+            final_add += ' + 2'
+        if positions[e[0]][2] == 1:
+            add += ' + v_plane'
+        if positions[e[0]][1] == 1:
+            add += ' + v_line'
+        if positions[e[0]][0] == 1:
+            add += ' + 1'
+        print('\tcase ', '%2d' % i, ': return vertex_ids[(point_id', add, ') * 3', final_add, ']; //', e, sep='')
+    print('\t}')
+    print('\treturn -1;')
+    print('}')
+    print()
 
     def plane_id(a, b, c):
         '''
@@ -127,9 +145,8 @@ def main():
 
     lens = []
     print_debug = True
-    print('\tsize_t const edges_count{', 3 * max_triangles << vertices, '};', sep='')
-    print('\tuint8_t const edges[edges_count] = {', sep='')
-    for case in range(0, 1 << len(positions)):
+    print('constant char edges[', max_triangles * 3 << vertices, '] = {', sep='')
+    for case in range(1 << len(positions)):
         case_bin = [(case & (1 << j)) != 0 for j in range(vertices)]
         count = case_bin.count(True)
         inverted = False
@@ -139,7 +156,7 @@ def main():
             count = case_bin.count(True)
         edges_in_case = []
         if print_debug:
-            print('\t\t// case ', case, ', count is ', count, sep='', end=': ')
+            print('\t// case ', case, ', count is ', count, sep='', end=': ')
             if inverted:
                 print('(inverted) ', end='')
         vs = [i for i, x in enumerate(case_bin) if case_bin[i]]
@@ -157,13 +174,30 @@ def main():
             vs = [i for i in vs if i not in ws]
             count = len(vs)
 
+        ws = []
+        for i in vs:
+            for j in vs:
+                if i >= j:
+                    continue
+                if i not in adjustment[j]:
+                    continue
+                if len([a for a in adjustment[i] if a in vs]) != 1:
+                    continue
+                if len([a for a in adjustment[j] if a in vs]) != 1:
+                    continue
+                ws += [i, j]
+                edges_in_case += case2(i, j, print_debug)
+
+        if len(ws) > 0:
+            vs = [i for i in vs if i not in ws]
+            count = len(vs)
+
         if count == 0:
             pass
         elif count == 1:
             assert False
         elif count == 2:
-            assert popcount(vs[0] ^ vs[1]) == 1
-            edges_in_case += case2(vs[0], vs[1], print_debug)
+            assert False
         elif count == 3:
             plane = plane_id(vs[0], vs[1], vs[2])
             assert plane != -1
@@ -181,20 +215,27 @@ def main():
             print()
 
         assert len(edges_in_case) % 3 == 0
-        assert len(edges_in_case) // 3 < max_triangles
+        assert len(edges_in_case) // 3 <= max_triangles
         lens.append(len(edges_in_case) // 3)
-        edges_in_case += [0 for _ in range(3 * max_triangles - len(edges_in_case))]
-        print('\t\t', ', '.join(map(str, edges_in_case)), ',', sep='')
-    print('\t};')
+        edges_in_case += [-1 for _ in range(3 * max_triangles - len(edges_in_case))]
+        print('\t', ', '.join(map(lambda t: '%2d' % t, edges_in_case)), ',', sep='')
+    print('};')
     print()
 
-    print('\tsize_t const cases_count{', 1 << vertices, '};', sep='')
-    print('\tuint8_t case_sizes[cases_count] = {\n\t\t', sep='', end='')
+    print('constant char case_sizes[', 1 << vertices,'] = {\n\t', sep='', end='')
     print(*lens, sep=', ')
-    print('\t};')
+    print('};')
 
-    print('}')
+    print()
     print('// CODE ABOVE IS GENERATED')
+    print()
+
+    print('#pragma once', file=stderr)
+    print('// CODE BELOW IS GENERATED', file=stderr)
+    print(file=stderr)
+    print('#define MAX_TRIANGLES ', max_triangles, file=stderr)
+    print(file=stderr)
+    print('// CODE ABOVE IS GENERATED', file=stderr)
 
 if __name__ == '__main__':
     main()

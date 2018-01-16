@@ -143,6 +143,21 @@ def main():
         v4t = [edge_id(v4, a) for a in adjustment[v4] if a not in (v1, v3)][0]
         return [v1t, v2t, v4t, v2t, v4t, v3t]
 
+    def case6(v1, debug):
+        if debug:
+            print('4 triangles around ', v1, ', star', sep='', end='; ')
+        return {
+            0: [4, 9, 8, 4, 6, 9, 3, 6, 4, 3, 5, 6],
+            1: [7, 8, 10, 7, 2, 8, 5, 2, 7, 5, 0, 2],
+            2: [2, 11, 9, 2, 7, 11, 0, 7, 2, 0, 3, 7],
+            3: [6, 10, 11, 6, 4, 10, 1, 4, 6, 1, 0, 4],
+            4: [4, 11, 10, 4, 6, 11, 0, 6, 4, 0, 1, 6],
+            5: [7, 9, 11, 7, 2, 9, 3, 2, 7, 3, 0, 2],
+            6: [],
+            7: [],
+            8: []
+        }[v1]
+
     lens = []
     print_debug = True
     print('constant char edges[', max_triangles * 3 << vertices, '] = {', sep='')
@@ -209,8 +224,12 @@ def main():
             if plane1 == plane2 != -1:
                 edges_in_case += case5(vs[0], vs[1], vs[2], vs[3], print_debug)
             else:
-                if print_debug:
-                    print('UNHANDLED 4', vs, end='')
+                stars = [v for v in vs if len([u for u in adjustment[v] if u in vs]) == 3]
+                if len(stars) == 1:
+                    edges_in_case += case6(stars[0], print_debug)
+                else:
+                    if print_debug:
+                        print('UNHANDLED 4', vs, end='')
         if print_debug:
             print()
 

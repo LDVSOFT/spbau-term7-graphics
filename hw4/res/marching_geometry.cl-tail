@@ -13,7 +13,7 @@ float F(
 	global read_only float3 const c[],
 	float threshold
 ) {
-	return length(point) - threshold;
+	return -(length(point) - threshold);
 	float res = -threshold;
 	for (int i = 0; i != spheres; ++i)
 		res += f(point, a[i], c[i]);
@@ -102,39 +102,36 @@ kernel void build_mesh(
 	int v_plane = v_line * (m + 1);
 	
 	float3 point = (float3) (
-		(2 * x + 1.0) / n - 1,
-		(2 * y + 1.0) / m - 1,
-		(2 * z + 1.0) / k - 1
+		(2 * x + .0) / n - 1.0,
+		(2 * y + .0) / m - 1.0,
+		(2 * z + .0) / k - 1.0
 	) * zone;
 	int point_id = z * v_plane + y * v_line + x;
 
 	/* pos */ {
-		float my_value = values[z * v_plane + y * v_line + z];
+		float my_value = fabs(values[point_id]);
 		if (x < n) {
-			float alt_value = values[z * v_plane + y * v_line + (x + 1)];
-			if ((alt_value >= 0) != (my_value >= 0)) {
-				int edge_id = 3 * point_id + 0;
-				vertex_pos[vertex_ids[edge_id]] = point + (
-					fabs(alt_value) * (float3)(-dx, -dy, -dz) + fabs(my_value) * (float3)(-dx, -dy, +dz)
-				) / (fabs(alt_value) + fabs(my_value));
+			int alt_point_id = z * v_plane + y * v_line + (x + 1);
+			float alt_value = fabs(values[alt_point_id]);
+			int edge_id = vertex_ids[3 * point_id + 0];
+			if (edge_id != -1) {
+				vertex_pos[edge_id] = point + (float3)(+dx * 2, 0, 0) * (my_value / (my_value + alt_value));
 			}
 		}
 		if (y < m) {
-			float alt_value = values[z * v_plane + (y + 1) * v_line + x];
-			if ((alt_value >= 0) != (my_value >= 0)) {
-				int edge_id = 3 * point_id + 1;
-				vertex_pos[vertex_ids[edge_id]] = point + (
-					fabs(alt_value) * (float3)(-dx, -dy, -dz) + fabs(my_value) * (float3)(-dx, +dy, -dz)
-				) / (fabs(alt_value) + fabs(my_value));
+			int alt_point_id = z * v_plane + (y + 1) * v_line + x;
+			float alt_value = fabs(values[alt_point_id]);
+			int edge_id = vertex_ids[3 * point_id + 1];
+			if (edge_id != -1) {
+				vertex_pos[edge_id] = point + (float3)(0, +dy * 2, 0) * (my_value / (my_value + alt_value));
 			}
 		}
 		if (z < k) {
-			float alt_value = values[(z + 1) * v_plane + y * v_line + x];
-			if ((alt_value >= 0) != (my_value >= 0)) {
-				int edge_id = 3 * point_id + 2;
-				vertex_pos[vertex_ids[edge_id]] = point + (
-					fabs(alt_value) * (float3)(-dx, -dy, -dz) + fabs(my_value) * (float3)(+dx, -dy, -dz)
-				) / (fabs(alt_value) + fabs(my_value));
+			int alt_point_id = (z + 1) * v_plane + y * v_line + x;
+			float alt_value = fabs(values[alt_point_id]);
+			int edge_id = vertex_ids[3 * point_id + 2];
+			if (edge_id != -1) {
+				vertex_pos[edge_id] = point + (float3)(0, 0, +dz * 2) * (my_value / (my_value + alt_value));
 			}
 		}
 	}

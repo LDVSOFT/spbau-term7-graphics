@@ -223,7 +223,13 @@ void Hw4Window::gl_init() {
 
 		/* marching geometry */ {
 			string kernel(load_resource("/net/ldvsoft/spbau/gl/marching_geometry.cl"));
-			cl::Program program(cl.context, kernel, true);
+			cl::Program program(cl.context, kernel);
+			try {
+				program.build();
+			} catch (cl::Error const &e) {
+				report_error("OpenCL build: " + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(cl.device));
+				return;
+			}
 
 			cl.fill_values_and_find_edges = Kernel(program, "fill_values_and_find_edges");
 			cl.build_mesh = Kernel(program, "build_mesh");
@@ -343,18 +349,42 @@ bool Hw4Window::gl_render(RefPtr<GLContext> const &context) {
 	return false;
 }
 
+template<typename T>
+void cl_read_buffer(std::vector<T> &target, Buffer const &buffer, CommandQueue const &queue) {
+	assert(sizeof(T) * target.size() == buffer.getInfo<CL_MEM_SIZE>());
+	queue.enqueueReadBuffer(buffer, false, 0, sizeof(T) * target.size(), target.data());
+}
+
+template<typename T>
+void cl_write_buffer(std::vector<T> &target, Buffer const &buffer, CommandQueue const &queue) {
+	assert(sizeof(T) * target.size() == buffer.getInfo<CL_MEM_SIZE>());
+	queue.enqueueWriteBuffer(buffer, false, 0, sizeof(T) * target.size(), target.data());
+}
+
+template<typename T>
+void cl_fill_buffer(T const &value, Buffer const &buffer, CommandQueue const &queue) {
+	queue.enqueueFillBuffer<T>(buffer, value, 0, buffer.getInfo<CL_MEM_SIZE>());
+}
+
 void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
-	/* calculations */ {
+	auto report_error{[this](string const &msg) -> void {
+		Error error(hw4_error_quark, 0, msg);
+		area->set_error(error);
+		std::cout << "ERROR: " << msg << std::endl;
+	}};
+
+	/* calculations */ try {
 		/* HERE AND BELOW:
 		 * OpenCL treats float3 like float4 inside,
 		 * but here we use GLM types...
+		 * DO NOT USE cl_float3
 		 */
 		using cl_vec3 = vec4;
 
 		cl_int
 			n(xresolution_adjustment->get_value()),
-			m(xresolution_adjustment->get_value()),
-			k(xresolution_adjustment->get_value());
+			m(yresolution_adjustment->get_value()),
+			k(zresolution_adjustment->get_value());
 
 		cl_int const
 			vertices{(n + 1) * (m + 1) * (k + 1)},
@@ -364,7 +394,7 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		Buffer
 			values_buffer(cl.context, CL_MEM_READ_WRITE, sizeof(cl_uint) * vertices),
 			a_buffer(cl.context, CL_MEM_READ_ONLY, sizeof(cl_float) * gl.spheres.size()),
-			c_buffer(cl.context, CL_MEM_READ_ONLY, sizeof(cl_float3) * gl.spheres.size()),
+			c_buffer(cl.context, CL_MEM_READ_ONLY, sizeof(cl_vec3) * gl.spheres.size()),
 			edge_used_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_int) * edges);
 
 		/* fill data */ {
@@ -372,13 +402,12 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 			std::vector<cl_vec3> c;
 			for (auto const &sphere: gl.spheres) {
 				a.push_back(sphere.power);
-				c.push_back(cl_vec3(sphere.position, 0)); // (<_<) cl_vec3 = vec4
+				c.push_back(cl_vec3(sphere.position, 0)); // (<_<)
 			}
 
-			cl.queue.enqueueWriteBuffer(a_buffer, false, 0, sizeof(decltype(a)::value_type) * a.size(), a.data());
-			cl.queue.enqueueWriteBuffer(c_buffer, false, 0, sizeof(decltype(c)::value_type) * c.size(), c.data());
-			static const cl_int fls{0};
-			cl.queue.enqueueFillBuffer(edge_used_buffer, fls, 0, sizeof(cl_int) * edges);
+			cl_write_buffer(a, a_buffer, cl.queue);
+			cl_write_buffer(c, c_buffer, cl.queue);
+			cl_fill_buffer<cl_int>(0, edge_used_buffer, cl.queue);
 		}
 
 		cl.fill_values_and_find_edges.setArg(0, n);
@@ -396,8 +425,8 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 
 		std::vector<int> edge_used(edges);
 		std::vector<float> values(vertices);
-		cl.queue.enqueueReadBuffer(edge_used_buffer, false, 0, sizeof(decltype(edge_used)::value_type) * edge_used.size(), edge_used.data());
-		cl.queue.enqueueReadBuffer(values_buffer, false, 0, sizeof(decltype(values)::value_type) * values.size(), values.data());
+		cl_read_buffer(edge_used, edge_used_buffer, cl.queue);
+		cl_read_buffer(values, values_buffer, cl.queue);
 		cl.queue.finish();
 
 		Buffer
@@ -405,12 +434,12 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		std::vector<int> vertex_ids(edges, -1);
 		int vertex_count{0};
 		/* fill ids */ {
-			int v_line{n};
-			int v_plane{v_line * m};
+			int v_line{n + 1};
+			int v_plane{v_line * (m + 1)};
 
-			for (int x{0}; x <= n; ++x)
+			for (int z{0}; z <= k; ++z)
 				for (int y{0}; y <= m; ++y)
-					for (int z{0}; z <= k; ++z) {
+					for (int x{0}; x <= n; ++x) {
 						int v_id{z * v_plane + y * v_line + x};
 						if (x < n && edge_used[v_id * 3 + 0] == 1)
 							vertex_ids[v_id * 3 + 0] = vertex_count++;
@@ -420,16 +449,16 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 							vertex_ids[v_id * 3 + 2] = vertex_count++;
 					}
 			std::cout << "Vertex count: " << vertex_count << std::endl;
-			cl.queue.enqueueWriteBuffer(vertex_ids_buffer, false, 0, sizeof(decltype(vertex_ids)::value_type), vertex_ids.data());
+			cl_write_buffer(vertex_ids, vertex_ids_buffer, cl.queue);
 		}
+		if (vertex_count == 0)
+			return;
 		Buffer
-			vertex_pos_buffer(cl.context, CL_MEM_READ_WRITE, sizeof(cl_float3) * vertex_count),
-			vertex_norm_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_float3) * cubes * MAX_TRIANGLES * 3),
+			vertex_pos_buffer(cl.context, CL_MEM_READ_WRITE, sizeof(cl_vec3) * vertex_count),
+			vertex_norm_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_vec3) * cubes * MAX_TRIANGLES * 3),
 			triangles_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_int) * cubes * MAX_TRIANGLES * 3);
-		/* fill -1 */ {
-			static cl_int const neg1{-1};
-			cl.queue.enqueueFillBuffer(triangles_buffer, neg1, 0, sizeof(cl_int) * cubes * MAX_TRIANGLES * 3);
-		}
+		cl_fill_buffer<cl_vec3>(cl_vec3(), vertex_pos_buffer, cl.queue);
+		cl_fill_buffer<cl_int>(-1, triangles_buffer, cl.queue);
 
 		cl.build_mesh.setArg(0, n);
 		cl.build_mesh.setArg(1, m);
@@ -446,39 +475,40 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		std::vector<glm::vec4>
 			vertex_pos(vertex_count),
 			vertex_norm(cubes * MAX_TRIANGLES * 3);
-		std::vector<int> triangles(cubes * MAX_TRIANGLES * 3);
+		std::vector<int> triangles(cubes * MAX_TRIANGLES * 3, -1);
 
-		cl.queue.enqueueReadBuffer(vertex_pos_buffer, false, 0, sizeof(decltype(vertex_pos)::value_type) * vertex_pos.size(), vertex_pos.data());
-		cl.queue.enqueueReadBuffer(vertex_norm_buffer, false, 0, sizeof(decltype(vertex_norm)::value_type) * vertex_norm.size(), vertex_norm.data());
-		cl.queue.enqueueReadBuffer(triangles_buffer, false, 0, sizeof(decltype(triangles)::value_type) * triangles.size(), triangles.data());
+		cl_read_buffer(vertex_pos, vertex_pos_buffer, cl.queue);
+		cl_read_buffer(vertex_norm, vertex_norm_buffer, cl.queue);
+		cl_read_buffer(triangles, triangles_buffer, cl.queue);
 		cl.queue.finish();
 
 		std::vector<int> vertex_met(vertex_count);
 		std::vector<::Object::vertex_data> object_data(vertex_count);
 		std::vector<glm::uvec3> object_elems;
 		for (int i{0}; i < cubes * MAX_TRIANGLES; ++i) {
-			if (triangles[i * 3] == -1)
+			if (triangles.at(3 * i) == -1)
 				continue;
-			object_elems.emplace_back(triangles[3 * i], triangles[3 * i + 1], triangles[3 * i + 2]);
+			object_elems.emplace_back(triangles.at(3 * i), triangles.at(3 * i + 1), triangles.at(3 * i + 2));
 			for (int j{0}; j < 3; ++j) {
-				int id{3 * i + j};
-				object_data[vertex_ids[id]].norm += vertex_norm[id].xyz();
-				vertex_met[vertex_ids[id]]++;
+				int id{triangles[3 * i + j]};
+				object_data.at(id).norm += vertex_norm.at(3 * i + j).xyz();
+				vertex_met.at(id)++;
 			}
 		}
 		for (int i{0}; i < vertex_count; ++i) {
-			object_data[i].pos = vertex_pos[i];
-			object_data[i].norm /= vertex_met[i];
+			object_data.at(i).pos = vertex_pos.at(i);
+			object_data.at(i).norm /= vertex_met.at(i);
 		}
 
 		gl.mesh = make_unique<SceneObject>(::Object::manual(object_data, object_elems));
+	} catch (cl::Error const &e) {
+		report_error(string("OpenCL: ") + e.what() + ": " + to_string(e.err()));
 	}
 
 	/* rrrender */ {
 		gl.marching_program->use();
 
-		static_cast<void>(view);
-		static_cast<void>(proj);
+		gl_draw_object(*gl.mesh, *gl.marching_program, view, proj);
 
 		glUseProgram(0);
 	}

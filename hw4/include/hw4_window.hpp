@@ -95,7 +95,10 @@ private:
 		float xangle{0}, yangle{0};
 		glm::vec3 camera_position;
 
-		bool to_left{false}, to_right{false}, to_up{false}, to_down{false}, to_front{false}, to_back{false};
+		bool
+			to_left{false}, to_right{false},
+			to_up{false}, to_down{false},
+			to_front{false}, to_back{false};
 
 		bool pressed{false};
 		float start_xangle, start_yangle;

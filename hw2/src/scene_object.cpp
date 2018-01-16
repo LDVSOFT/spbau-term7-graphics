@@ -79,7 +79,7 @@ void SceneObject::draw(
 	//	check("SceneObject::draw set mvp");
 	}
 
-	glDrawElements(GL_TRIANGLES, (elems_count + 3) * 3, GL_UNSIGNED_INT, nullptr);
+	glDrawElements(GL_TRIANGLES, (elems_count) * 3, GL_UNSIGNED_INT, nullptr);
 //	check("SceneObject::draw draw");
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);

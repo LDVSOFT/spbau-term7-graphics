@@ -4,9 +4,9 @@ uniform mat4 mvp;
 
 in vec3 vertex_position_model;
 
-out float height;
+out vec3 fragment_color;
 
 void main() {
 	gl_Position = mvp * vec4(vertex_position_model, 1);
-	height = (vertex_position_model.y + 1) / 2;
+	fragment_color = (vertex_position_model + vec3(1, 1, 1)) / 2;
 }

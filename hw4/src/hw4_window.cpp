@@ -232,6 +232,7 @@ void Hw4Window::gl_init() {
 			}
 
 			cl.fill_values_and_find_edges = Kernel(program, "fill_values_and_find_edges");
+			cl.put_vertices = Kernel(program, "put_vertices");
 			cl.build_mesh = Kernel(program, "build_mesh");
 		}
 	} catch (cl::Error const &e) {
@@ -431,7 +432,7 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 
 		Buffer
 			vertex_ids_buffer(cl.context, CL_MEM_READ_ONLY, sizeof(cl_int) * edges);
-		std::vector<int> vertex_ids(edges, -1);
+		std::vector<int> vertex_ids(edges, -2);
 		int vertex_count{0};
 		/* fill ids */ {
 			int v_line{n + 1};
@@ -454,10 +455,22 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		if (vertex_count == 0)
 			return;
 		Buffer
-			vertex_pos_buffer(cl.context, CL_MEM_READ_WRITE, sizeof(cl_vec3) * vertex_count),
+			vertex_pos_buffer(cl.context, CL_MEM_READ_WRITE, sizeof(cl_vec3) * vertex_count);
+
+		cl.put_vertices.setArg(0, n);
+		cl.put_vertices.setArg(1, m);
+		cl.put_vertices.setArg(2, k);
+		cl.put_vertices.setArg<float>(3, view_range);
+		cl.put_vertices.setArg(4, values_buffer);
+		cl.put_vertices.setArg(5, vertex_ids_buffer);
+		cl.put_vertices.setArg(6, vertex_pos_buffer);
+
+		cl.queue.enqueueNDRangeKernel(cl.put_vertices, cl::NullRange, cl::NDRange(n + 1, m + 1, k + 1), cl::NullRange);
+
+		Buffer
 			vertex_norm_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_vec3) * cubes * MAX_TRIANGLES * 3),
-			triangles_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_int) * cubes * MAX_TRIANGLES * 3);
-		cl_fill_buffer<cl_vec3>(cl_vec3(), vertex_pos_buffer, cl.queue);
+			triangles_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_int) * cubes * MAX_TRIANGLES * 3),
+			cases_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_int) * cubes);
 		cl_fill_buffer<cl_int>(-1, triangles_buffer, cl.queue);
 
 		cl.build_mesh.setArg(0, n);
@@ -469,13 +482,18 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		cl.build_mesh.setArg(6, vertex_pos_buffer);
 		cl.build_mesh.setArg(7, vertex_norm_buffer);
 		cl.build_mesh.setArg(8, triangles_buffer);
+		cl.build_mesh.setArg(9, cases_buffer);
 
-		cl.queue.enqueueNDRangeKernel(cl.build_mesh, cl::NullRange, cl::NDRange(n + 1, m + 1, k + 1), cl::NullRange);
+		cl.queue.enqueueNDRangeKernel(cl.build_mesh, cl::NullRange, cl::NDRange(n, m, k), cl::NullRange);
 
 		std::vector<glm::vec4>
 			vertex_pos(vertex_count),
 			vertex_norm(cubes * MAX_TRIANGLES * 3);
 		std::vector<int> triangles(cubes * MAX_TRIANGLES * 3, -1);
+
+		/* debug */
+		std::vector<int> cases(cubes);
+		cl_read_buffer(cases, cases_buffer, cl.queue);
 
 		cl_read_buffer(vertex_pos, vertex_pos_buffer, cl.queue);
 		cl_read_buffer(vertex_norm, vertex_norm_buffer, cl.queue);
@@ -491,13 +509,21 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 			object_elems.emplace_back(triangles.at(3 * i), triangles.at(3 * i + 1), triangles.at(3 * i + 2));
 			for (int j{0}; j < 3; ++j) {
 				int id{triangles[3 * i + j]};
+				if (id < 0) {
+					std::cerr << "AT POSITION " << i << ":" << j << " GOT " << id << std::endl;
+					continue;
+				}
 				object_data.at(id).norm += vertex_norm.at(3 * i + j).xyz();
 				vertex_met.at(id)++;
 			}
 		}
+		size_t bad_cnt{0};
 		for (int i{0}; i < vertex_count; ++i) {
 			object_data.at(i).pos = vertex_pos.at(i);
-			object_data.at(i).norm /= vertex_met.at(i);
+			if (vertex_met.at(i) > 0)
+				object_data.at(i).norm /= vertex_met.at(i);
+			else
+				++bad_cnt;
 		}
 
 		gl.mesh = make_unique<SceneObject>(::Object::manual(object_data, object_elems));
@@ -523,7 +549,7 @@ void Hw4Window::gl_render_spheres(mat4 const &view, mat4 const &proj) {
 		double rad{sqrt(threshold / sphere.power)};
 		gl.sphere->position = glm::scale(
 			glm::translate(sphere.position),
-			vec3(rad, rad, rad)
+			vec3(1 / rad, 1 / rad, 1 / rad)
 		);
 		gl_draw_object(*gl.sphere, *gl.spheres_program, view, proj);
 	}
@@ -655,8 +681,8 @@ void Hw4Window::spheres_changed() {
 		random_device rd;
 		default_random_engine rand(rd());
 		uniform_real_distribution<double> dist(-1, 1);
-		gl.spheres[i].power  = dist(rand) * 3 + 20;
-		gl.spheres[i].speed  = dist(rand) * 4 + 15;
+		gl.spheres[i].power  = dist(rand) * .02 + .09;
+		gl.spheres[i].speed  = dist(rand) * 8 + 15;
 		gl.spheres[i].radius = dist(rand) * .1 + .5;
 	}
 	options_changed();

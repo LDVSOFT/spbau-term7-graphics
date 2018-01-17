@@ -41,6 +41,18 @@ def main():
     for e in edges:
         e.sort()
     edges = sorted(set(map(tuple, edges)))
+    '''
+       .--11---.
+      /|      /|
+     9 6    10 7
+    .--8----.  |
+    |  |    |  |
+    2  |    4  |
+    |  .--5-|--.
+    | /     | /
+    |1      |3
+    .--0----.
+    '''
 
     def edge_id(a, b):
         return edges.index((min(a, b), max(a, b)))
@@ -68,9 +80,9 @@ def main():
             add += ' + v_line'
         if positions[e[0]][0] == 1:
             add += ' + 1'
-        print('\tcase ', '%2d' % i, ': return vertex_ids[(point_id', add, ') * 3', final_add, ']; //', e, sep='')
+        print('\tcase ', '%2d' % i, ': return vertex_ids[(point_id', add, ') * 3', final_add, ']; // ', e, sep='')
     print('\t}')
-    print('\treturn -1;')
+    print('\treturn -3;')
     print('}')
     print()
 
@@ -107,19 +119,19 @@ def main():
 
     def case_unrelated(debug, *vs):
         if debug:
-            print(len(vs), ' triangle(s) around ', vs, ', unrelated', sep='', end='; ')
+            print('\t//   ', len(vs), ' triangle(s) around ', vs, ', unrelated', sep='')
         return [edge_id(v, a) for v in vs for a in adjustment[v]]
 
     def case2(v1, v2, debug):
         if debug:
-            print('2 triangles around ', v1, ' and ', v2, ', adjustment', sep='', end='; ')
+            print('\t//   ', '2 triangles around ', v1, ' and ', v2, ', adjustment', sep='')
         a, b = [edge_id(v1, i) for i in adjustment[v1] if i != v2]
         c, d = [edge_id(v2, i) for i in adjustment[v2] if i != v1]
         return [a, b, c, b, c, d]
 
     def case4(v1, v2, v3, debug):
         if debug:
-            print('3 triangles around ', v1, ', ', v2, ' and ', v3, ', one plane', sep='', end='; ')
+            print('\t//   ', '3 triangles around ', v1, ', ', v2, ' and ', v3, ', one plane', sep='')
         vs = (v1, v2, v3)
         m = max(vs, key=lambda t: sum([1 if i in vs else 0 for i in adjustment[t]]))
         l, r = [a for a in (v1, v2, v3) if a != m]
@@ -133,7 +145,7 @@ def main():
 
     def case5(v1, v2, v3, v4, debug):
         if debug:
-            print('2 triangles around ', v1, ', ', v2, ', ', v3, ' and ', v4, ', one plane', sep='', end='; ')
+            print('\t//   ', '2 triangles around ', v1, ', ', v2, ', ', v3, ' and ', v4, ', one plane', sep='')
         ov3 = [a for a in (v1, v2, v3, v4) if a not in adjustment[v1] and a != v1][0]
         ov2, ov4 = [a for a in (v2, v3, v4) if a != ov3]
         v1, v2, v3, v4 = v1, ov2, ov3, ov4
@@ -145,21 +157,21 @@ def main():
 
     def case6(v1, debug):
         if debug:
-            print('4 triangles around ', v1, ', star', sep='', end='; ')
+            print('\t//   ', '4 triangles around ', v1, ', star', sep='')
         return {
             0: [4, 9, 8, 4, 6, 9, 3, 6, 4, 3, 5, 6],
-            1: [7, 8, 10, 7, 2, 8, 5, 2, 7, 5, 0, 2],
+            1: [7, 8, 10, 7, 2, 8, 5, 2, 7, 5, 1, 2],
             2: [2, 11, 9, 2, 7, 11, 0, 7, 2, 0, 3, 7],
             3: [6, 10, 11, 6, 4, 10, 1, 4, 6, 1, 0, 4],
             4: [4, 11, 10, 4, 6, 11, 0, 6, 4, 0, 1, 6],
             5: [7, 9, 11, 7, 2, 9, 3, 2, 7, 3, 0, 2],
-            6: [],
-            7: [],
-            8: []
+            6: [2, 10, 8, 2, 7, 10, 1, 7, 2, 1, 5, 7],
+            7: [6, 8, 9, 6, 4, 8, 5, 4, 6, 5, 3, 4]
         }[v1]
 
     lens = []
     print_debug = True
+    unhandled = 0
     print('constant char edges[', max_triangles * 3 << vertices, '] = {', sep='')
     for case in range(1 << len(positions)):
         case_bin = [(case & (1 << j)) != 0 for j in range(vertices)]
@@ -171,9 +183,9 @@ def main():
             count = case_bin.count(True)
         edges_in_case = []
         if print_debug:
-            print('\t// case ', case, ', count is ', count, sep='', end=': ')
+            print('\t// case ', case, ', count is ', count, sep='')
             if inverted:
-                print('(inverted) ', end='')
+                print('\t// (inverted) ', end='\n')
         vs = [i for i, x in enumerate(case_bin) if case_bin[i]]
 
         ws = []
@@ -229,9 +241,8 @@ def main():
                     edges_in_case += case6(stars[0], print_debug)
                 else:
                     if print_debug:
-                        print('UNHANDLED 4', vs, end='')
-        if print_debug:
-            print()
+                        print('\t// UNHANDLED 4', vs)
+                        unhandled += 1
 
         assert len(edges_in_case) % 3 == 0
         assert len(edges_in_case) // 3 <= max_triangles
@@ -239,6 +250,8 @@ def main():
         edges_in_case += [-1 for _ in range(3 * max_triangles - len(edges_in_case))]
         print('\t', ', '.join(map(lambda t: '%2d' % t, edges_in_case)), ',', sep='')
     print('};')
+    if print_debug:
+        print('// unhandled: ', unhandled)
     print()
 
     print('constant char case_sizes[', 1 << vertices,'] = {\n\t', sep='', end='')

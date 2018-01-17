@@ -13,7 +13,7 @@ float F(
 	global read_only float3 const c[],
 	float threshold
 ) {
-	return -(length(point) - threshold);
+//	return -(length(point) - threshold);
 	float res = -threshold;
 	for (int i = 0; i != spheres; ++i)
 		res += f(point, a[i], c[i]);
@@ -74,7 +74,7 @@ kernel void fill_values_and_find_edges(
 	}
 }
 
-kernel void build_mesh(
+kernel void put_vertices(
 	// 0-2: dimensions
 	int n, int m, int k,
 	// 3: work zone
@@ -84,11 +84,7 @@ kernel void build_mesh(
 	// 5: vertex ids ([0..n][0..m][0..k] * 3) -> [0, max_id)
 	global read_only int vertex_ids[],
 	// 6: vertex pos ([0..max_id))
-	global float3 vertex_pos[],
-	// 7: vertex_norm ([0..n)[0..m)[0..k)[0..MAX_TRIANGLES)[0..3))
-	global write_only float3 vertex_norm[],
-	// 8: triangles vertex ids ([0..n)[0..m)[0..k)[0..MAX_TRIANGLES)[0..3))
-	global write_only int triangles[]
+	global write_only float3 vertex_pos[]
 ) {
 	int x = get_global_id(0); // [0..n]
 	int y = get_global_id(1);
@@ -108,73 +104,112 @@ kernel void build_mesh(
 	) * zone;
 	int point_id = z * v_plane + y * v_line + x;
 
-	/* pos */ {
-		float my_value = fabs(values[point_id]);
-		if (x < n) {
-			int alt_point_id = z * v_plane + y * v_line + (x + 1);
-			float alt_value = fabs(values[alt_point_id]);
-			int edge_id = vertex_ids[3 * point_id + 0];
-			if (edge_id != -1) {
-				vertex_pos[edge_id] = point + (float3)(+dx * 2, 0, 0) * (my_value / (my_value + alt_value));
-			}
-		}
-		if (y < m) {
-			int alt_point_id = z * v_plane + (y + 1) * v_line + x;
-			float alt_value = fabs(values[alt_point_id]);
-			int edge_id = vertex_ids[3 * point_id + 1];
-			if (edge_id != -1) {
-				vertex_pos[edge_id] = point + (float3)(0, +dy * 2, 0) * (my_value / (my_value + alt_value));
-			}
-		}
-		if (z < k) {
-			int alt_point_id = (z + 1) * v_plane + y * v_line + x;
-			float alt_value = fabs(values[alt_point_id]);
-			int edge_id = vertex_ids[3 * point_id + 2];
-			if (edge_id != -1) {
-				vertex_pos[edge_id] = point + (float3)(0, 0, +dz * 2) * (my_value / (my_value + alt_value));
-			}
+	float my_value = fabs(values[point_id]);
+	if (x < n) {
+		int alt_point_id = z * v_plane + y * v_line + (x + 1);
+		float alt_value = fabs(values[alt_point_id]);
+		int edge_id = vertex_ids[3 * point_id + 0];
+		if (edge_id >= 0) {
+			vertex_pos[edge_id] = point + (float3)(+dx * 2, 0, 0) * (my_value / (my_value + alt_value));
 		}
 	}
+	if (y < m) {
+		int alt_point_id = z * v_plane + (y + 1) * v_line + x;
+		float alt_value = fabs(values[alt_point_id]);
+		int edge_id = vertex_ids[3 * point_id + 1];
+		if (edge_id >= 0) {
+			vertex_pos[edge_id] = point + (float3)(0, +dy * 2, 0) * (my_value / (my_value + alt_value));
+		}
+	}
+	if (z < k) {
+		int alt_point_id = (z + 1) * v_plane + y * v_line + x;
+		float alt_value = fabs(values[alt_point_id]);
+		int edge_id = vertex_ids[3 * point_id + 2];
+		if (edge_id >= 0) {
+			vertex_pos[edge_id] = point + (float3)(0, 0, +dz * 2) * (my_value / (my_value + alt_value));
+		}
+	}
+}
 
-	barrier(CLK_GLOBAL_MEM_FENCE);
+kernel void build_mesh(
+	// 0-2: dimensions
+	int n, int m, int k,
+	// 3: work zone
+	float zone,
+	// 4: vertex values ([0..n][0..m][0..k])
+	global read_only float values[],
+	// 5: vertex ids ([0..n][0..m][0..k] * 3) -> [0, max_id)
+	global read_only int vertex_ids[],
+	// 6: vertex pos ([0..max_id))
+	global read_only float3 vertex_pos[],
+	// 7: vertex_norm ([0..n)[0..m)[0..k)[0..MAX_TRIANGLES)[0..3))
+	global write_only float3 vertex_norm[],
+	// 8: triangles vertex ids ([0..n)[0..m)[0..k)[0..MAX_TRIANGLES)[0..3))
+	global write_only int triangles[],
+	// 9: DEBUG cases ([0..n)[0..m)[0..k))
+	global write_only int cases[]
+) {
+	int x = get_global_id(0); // [0..n)
+	int y = get_global_id(1);
+	int z = get_global_id(2);
 	
-	if (x >= n || y >= m || z >= k)
-		return;
+	int v_line = n + 1;
+	int v_plane = v_line * (m + 1);
+	int point_id = z * v_plane + y * v_line + x;
 
 	int c_line = n;
-	int c_plane = v_line * m;
+	int c_plane = c_line * m;
 	int cube_id = z * c_plane + y * c_line + x;
 
 	int case_id = 0;
-	case_id |= (values[(z + 0) * v_plane + (y + 0) * v_line + (x + 0)] >= 0) << 0;
-	case_id |= (values[(z + 0) * v_plane + (y + 0) * v_line + (x + 1)] >= 0) << 1;
-	case_id |= (values[(z + 0) * v_plane + (y + 1) * v_line + (x + 0)] >= 0) << 2;
-	case_id |= (values[(z + 0) * v_plane + (y + 1) * v_line + (x + 1)] >= 0) << 3;
-	case_id |= (values[(z + 1) * v_plane + (y + 0) * v_line + (x + 0)] >= 0) << 4;
-	case_id |= (values[(z + 1) * v_plane + (y + 0) * v_line + (x + 1)] >= 0) << 5;
-	case_id |= (values[(z + 1) * v_plane + (y + 1) * v_line + (x + 0)] >= 0) << 6;
-	case_id |= (values[(z + 1) * v_plane + (y + 1) * v_line + (x + 1)] >= 0) << 7;
+	for (int i = 0; i < 8; ++i) {
+		int dx = (i >> 0) & 1;
+		int dy = (i >> 1) & 1;
+		int dz = (i >> 2) & 1;
+		int id = (z + dz) * v_plane + (y + dy) * v_line + (x + dx);
+		float t = values[id];
+		int bit = t >= 0;
+		case_id |= bit << i;
+	}
+	cases[cube_id] = case_id;
 
-	for (int i = 0; i < case_sizes[case_id]; ++i) {
-		int vertex[3];
-		for (int j = 0; j < 3; ++j) {
-			vertex[j] = vertex_by_edge(
-				n, m, k,
-				point_id,
-				edges[3 * MAX_TRIANGLES * case_id + i * 3 + j],
-				vertex_ids
-			);
-		}
+	int case_size = case_sizes[case_id];
+	for (int i = 0; i < case_size; ++i) {
+		int v0, v1, v2;
+		v0 = vertex_by_edge(
+			n, m, k,
+			point_id,
+			edges[3 * MAX_TRIANGLES * case_id + i * 3 + 0],
+			vertex_ids
+		);
+		v1 = vertex_by_edge(
+			n, m, k,
+			point_id,
+			edges[3 * MAX_TRIANGLES * case_id + i * 3 + 1],
+			vertex_ids
+		);
+		v2 = vertex_by_edge(
+			n, m, k,
+			point_id,
+			edges[3 * MAX_TRIANGLES * case_id + i * 3 + 2],
+			vertex_ids
+		);
+		bool corrupted = (v0 < 0 || v1 < 0 || v2 < 0);
 
-		float3 norm = normalize(cross(
-			vertex_pos[vertex[1]] - vertex_pos[vertex[0]],
-			vertex_pos[vertex[2]] - vertex_pos[vertex[1]]
-		));
-		for (int j = 0; j < 3; ++j) {
-			int write_id = (point_id * MAX_TRIANGLES + i) * 3 + j;
-			vertex_norm[write_id] = norm;
-			triangles[write_id] = vertex[j];
-		}
+		float3 norm;
+		if (!corrupted)
+			norm = normalize(cross(
+				vertex_pos[v1] - vertex_pos[v0],
+				vertex_pos[v2] - vertex_pos[v1]
+			));
+		int write_id = (cube_id * MAX_TRIANGLES + i) * 3;
+		vertex_norm[write_id + 0] = norm;
+		vertex_norm[write_id + 1] = norm;
+		vertex_norm[write_id + 2] = norm;
+		triangles[write_id + 0] = v0;
+		triangles[write_id + 1] = v1;
+		triangles[write_id + 2] = v2;
+//		cases[cube_id] = write_id;
 	}
 }
 

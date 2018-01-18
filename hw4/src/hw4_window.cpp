@@ -231,7 +231,8 @@ void Hw4Window::gl_init() {
 				return;
 			}
 
-			cl.fill_values_and_find_edges = Kernel(program, "fill_values_and_find_edges");
+			cl.fill_values = Kernel(program, "fill_values");
+			cl.find_edges = Kernel(program, "find_edges");
 			cl.put_vertices = Kernel(program, "put_vertices");
 			cl.build_mesh = Kernel(program, "build_mesh");
 		}
@@ -245,6 +246,7 @@ void Hw4Window::gl_finit() {
 	if (area->has_error())
 		return;
 	glDeleteFramebuffers(1, &gl.framebuffer);
+	gl.mesh = nullptr;
 	gl.cube = nullptr;
 	gl.sphere = nullptr;
 	gl.spheres_program = nullptr;
@@ -411,18 +413,25 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 			cl_fill_buffer<cl_int>(0, edge_used_buffer, cl.queue);
 		}
 
-		cl.fill_values_and_find_edges.setArg(0, n);
-		cl.fill_values_and_find_edges.setArg(1, m);
-		cl.fill_values_and_find_edges.setArg(2, k);
-		cl.fill_values_and_find_edges.setArg<float>(3, view_range);
-		cl.fill_values_and_find_edges.setArg<int>(4, gl.spheres.size());
-		cl.fill_values_and_find_edges.setArg(5, a_buffer);
-		cl.fill_values_and_find_edges.setArg(6, c_buffer);
-		cl.fill_values_and_find_edges.setArg<float>(7, threshold_adjustment->get_value());
-		cl.fill_values_and_find_edges.setArg(8, values_buffer);
-		cl.fill_values_and_find_edges.setArg(9, edge_used_buffer);
+		cl.fill_values.setArg(0, n);
+		cl.fill_values.setArg(1, m);
+		cl.fill_values.setArg(2, k);
+		cl.fill_values.setArg<float>(3, view_range);
+		cl.fill_values.setArg<int>(4, gl.spheres.size());
+		cl.fill_values.setArg(5, a_buffer);
+		cl.fill_values.setArg(6, c_buffer);
+		cl.fill_values.setArg<float>(7, threshold_adjustment->get_value());
+		cl.fill_values.setArg(8, values_buffer);
 
-		cl.queue.enqueueNDRangeKernel(cl.fill_values_and_find_edges, cl::NullRange, cl::NDRange(n + 1, m + 1, k + 1), cl::NullRange);
+		cl.queue.enqueueNDRangeKernel(cl.fill_values, cl::NullRange, cl::NDRange(n + 1, m + 1, k + 1), cl::NullRange);
+
+		cl.find_edges.setArg(0, n);
+		cl.find_edges.setArg(1, m);
+		cl.find_edges.setArg(2, k);
+		cl.find_edges.setArg(3, values_buffer);
+		cl.find_edges.setArg(4, edge_used_buffer);
+
+		cl.queue.enqueueNDRangeKernel(cl.find_edges, cl::NullRange, cl::NDRange(n + 1, m + 1, k + 1), cl::NullRange);
 
 		std::vector<int> edge_used(edges);
 		std::vector<float> values(vertices);
@@ -449,26 +458,29 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 						if (z < k && edge_used[v_id * 3 + 2] == 1)
 							vertex_ids[v_id * 3 + 2] = vertex_count++;
 					}
-			std::cout << "Vertex count: " << vertex_count << std::endl;
 			cl_write_buffer(vertex_ids, vertex_ids_buffer, cl.queue);
 		}
 		if (vertex_count == 0)
 			return;
 		Buffer
-			vertex_pos_buffer(cl.context, CL_MEM_READ_WRITE, sizeof(cl_vec3) * vertex_count);
+			vertex_pos_buffer(cl.context, CL_MEM_READ_WRITE, sizeof(cl_vec3) * vertex_count),
+			vertex_norm_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_vec3) * vertex_count);
 
 		cl.put_vertices.setArg(0, n);
 		cl.put_vertices.setArg(1, m);
 		cl.put_vertices.setArg(2, k);
 		cl.put_vertices.setArg<float>(3, view_range);
-		cl.put_vertices.setArg(4, values_buffer);
-		cl.put_vertices.setArg(5, vertex_ids_buffer);
-		cl.put_vertices.setArg(6, vertex_pos_buffer);
+		cl.put_vertices.setArg<int>(4, gl.spheres.size());
+		cl.put_vertices.setArg(5, a_buffer);
+		cl.put_vertices.setArg(6, c_buffer);
+		cl.put_vertices.setArg(7, values_buffer);
+		cl.put_vertices.setArg(8, vertex_ids_buffer);
+		cl.put_vertices.setArg(9, vertex_pos_buffer);
+		cl.put_vertices.setArg(10, vertex_norm_buffer);
 
 		cl.queue.enqueueNDRangeKernel(cl.put_vertices, cl::NullRange, cl::NDRange(n + 1, m + 1, k + 1), cl::NullRange);
 
 		Buffer
-			vertex_norm_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_vec3) * cubes * MAX_TRIANGLES * 3),
 			triangles_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_int) * cubes * MAX_TRIANGLES * 3),
 			cases_buffer(cl.context, CL_MEM_WRITE_ONLY, sizeof(cl_int) * cubes);
 		cl_fill_buffer<cl_int>(-1, triangles_buffer, cl.queue);
@@ -480,15 +492,13 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		cl.build_mesh.setArg(4, values_buffer);
 		cl.build_mesh.setArg(5, vertex_ids_buffer);
 		cl.build_mesh.setArg(6, vertex_pos_buffer);
-		cl.build_mesh.setArg(7, vertex_norm_buffer);
-		cl.build_mesh.setArg(8, triangles_buffer);
-		cl.build_mesh.setArg(9, cases_buffer);
+		cl.build_mesh.setArg(7, triangles_buffer);
 
 		cl.queue.enqueueNDRangeKernel(cl.build_mesh, cl::NullRange, cl::NDRange(n, m, k), cl::NullRange);
 
-		std::vector<glm::vec4>
+		std::vector<cl_vec3>
 			vertex_pos(vertex_count),
-			vertex_norm(cubes * MAX_TRIANGLES * 3);
+			vertex_norm(vertex_count);
 		std::vector<int> triangles(cubes * MAX_TRIANGLES * 3, -1);
 
 		/* debug */
@@ -500,7 +510,6 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		cl_read_buffer(triangles, triangles_buffer, cl.queue);
 		cl.queue.finish();
 
-		std::vector<int> vertex_met(vertex_count);
 		std::vector<::Object::vertex_data> object_data(vertex_count);
 		std::vector<glm::uvec3> object_elems;
 		for (int i{0}; i < cubes * MAX_TRIANGLES; ++i) {
@@ -513,22 +522,17 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 					std::cerr << "AT POSITION " << i << ":" << j << " GOT " << id << std::endl;
 					continue;
 				}
-				object_data.at(id).norm += vertex_norm.at(3 * i + j).xyz();
-				vertex_met.at(id)++;
 			}
 		}
-		size_t bad_cnt{0};
 		for (int i{0}; i < vertex_count; ++i) {
 			object_data.at(i).pos = vertex_pos.at(i);
-			if (vertex_met.at(i) > 0)
-				object_data.at(i).norm /= vertex_met.at(i);
-			else
-				++bad_cnt;
+			object_data.at(i).norm = vertex_norm.at(i);
 		}
 
 		gl.mesh = make_unique<SceneObject>(::Object::manual(object_data, object_elems));
 	} catch (cl::Error const &e) {
 		report_error(string("OpenCL: ") + e.what() + ": " + to_string(e.err()));
+		return;
 	}
 
 	/* rrrender */ {

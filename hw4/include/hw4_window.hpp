@@ -72,7 +72,8 @@ private:
 		cl::Context context;
 		cl::CommandQueue queue;
 		cl::Kernel
-			fill_values_and_find_edges,
+			fill_values,
+			find_edges,
 			put_vertices,
 			build_mesh;
 	} cl;

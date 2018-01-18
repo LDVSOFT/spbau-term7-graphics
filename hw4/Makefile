@@ -25,21 +25,21 @@ SRC = \
 	$(SRCDIR)/scene_object.cpp \
 	$(SRCDIR)/object.cpp \
 	$(SRCDIR)/program.cpp
-GEN_RES = $(SRCDIR)/hw4_resources.cpp
 GEN_DAT = $(RESDIR)/marching_geometry.cl-gen
 GEN_OCL = $(RESDIR)/marching_geometry.cl
 GEN_HDR = $(INCDIR)/marching_geometry.hpp
 BIN = hw4
+RES = hw4.gresource
 
 GENERATED = $(OBJS) \
 	Makefile.deps \
-	$(BIN) $(GEN_RES) $(GEN_DAT) $(GEN_OCL) $(GEN_HDR) $(BINDIR) \
+	$(BIN) $(GEN) $(GEN_DAT) $(GEN_OCL) $(GEN_HDR) $(BINDIR) \
 
-SRCS = $(GEN_RES) $(SRC)
+SRCS = $(SRC)
 OBJS = $(SRCS:$(SRCDIR)/%.cpp=$(BINDIR)/%.o)
 
 .PHONY: all
-all: $(BIN)
+all: $(BIN) $(RES)
 
 CXX = g++ -std=c++14 -Wall -Wextra -Werror -Wno-deprecated -Wno-error=ignored-attributes \
 	-g -gcolumn-info -Og
@@ -62,9 +62,9 @@ $(GEN_OCL): $(GEN_DAT) $(RESDIR)/marching_geometry.cl-tail
 	$(VERBinfo) '\tCONCAT\t'$@
 	$(VERBpref)cat $^ > $@
 
-$(GEN_RES): $(RESDIR)/hw4.gresource.xml $(patsubst %,$(RESDIR)/%,$(shell $(GLIB_COMPILE_RESOURCES) --generate-dependencies $(RESDIR)/hw4.gresource.xml))
+$(RES): $(RESDIR)/hw4.gresource.xml $(patsubst %,$(RESDIR)/%,$(shell $(GLIB_COMPILE_RESOURCES) --generate-dependencies $(RESDIR)/hw4.gresource.xml))
 	$(VERBinfo) '\tGLIB RESOURCES\t'$@
-	$(VERBpref)$(GLIB_COMPILE_RESOURCES) --sourcedir=$(RESDIR) --target=$@ --generate-source $<
+	$(VERBpref)$(GLIB_COMPILE_RESOURCES) --sourcedir=$(RESDIR) --target=$@ --generate $<
 
 $(BINDIR)/%.o: $(SRCDIR)/%.cpp | bin
 	$(VERBinfo) '\tCXX\t'$@

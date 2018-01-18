@@ -15,6 +15,7 @@ SRCDIR=src
 RESDIR=res
 BINDIR=bin
 INCDIR=include
+LIBINCDIR=include-libs
 
 SRC = \
 	$(SRCDIR)/hw4_window.cpp \
@@ -45,7 +46,7 @@ CXX = g++ -std=c++14 -Wall -Wextra -Werror -Wno-deprecated -Wno-error=ignored-at
 #	-flto -O3 -march=native
 PKGCONFIG = pkg-config
 LIBS = gtkmm-3.0 gio-2.0 epoxy OpenCL
-CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS) | sed 's/-I/-isystem/g') -iquote$(INCDIR)
+CFLAGS = $(shell $(PKGCONFIG) --cflags $(LIBS) | sed 's/-I/-isystem/g') -isystem$(LIBINCDIR) -iquote$(INCDIR)
 LFLAGS = $(shell $(PKGCONFIG) --libs   $(LIBS))
 GLIB_COMPILE_RESOURCES = $(shell $(PKGCONFIG) --variable=glib_compile_resources gio-2.0)
 GLIB_COMPILE_SCHEMAS   = $(shell $(PKGCONFIG) --variable=glib_compile_schemas gio-2.0)

@@ -8,6 +8,10 @@
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtx/transform.hpp>
 
+#define STBI_ONLY_PNG
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <iostream>
 #include <random>
 
@@ -144,11 +148,18 @@ void Hw4Window::gl_init() {
 		<< " (version " << glGetString(GL_VERSION) << ")\n";
 	std::cout << std::flush;
 
-	auto load_resource{[this](string const &path) -> char const * {
+	auto load_resource{[this](string const &path) {
+		struct res {
+			union {
+				const char *data;
+				const unsigned char *udata;
+			};
+			gsize size;
+		} result;
+
 		auto resource_bytes{Resource::lookup_data_global(path)};
-		gsize resource_size;
-		auto resource{static_cast<char const *>(resource_bytes->get_data(resource_size))};
-		return resource;
+		result.data = static_cast<char const *>(resource_bytes->get_data(result.size));
+		return result;
 	}};
 
 	auto report_error{[this](string const &msg) -> void {
@@ -160,9 +171,9 @@ void Hw4Window::gl_init() {
 	/* shaders */ {
 		string error_string;
 		auto create_program{
-			[this, &error_string, &load_resource](std::string const &name) -> std::unique_ptr<Program> {
-				std::string vertex(load_resource("/net/ldvsoft/spbau/gl/" + name + "_vertex.glsl"));
-				std::string fragment(load_resource("/net/ldvsoft/spbau/gl/" + name + "_fragment.glsl"));
+			[this, &error_string, &load_resource](string const &name) -> std::unique_ptr<Program> {
+				string vertex(load_resource("/net/ldvsoft/spbau/gl/" + name + "_vertex.glsl").data);
+				string fragment(load_resource("/net/ldvsoft/spbau/gl/" + name + "_fragment.glsl").data);
 				return Program::build_program(
 					{{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}},
 					error_string
@@ -178,6 +189,10 @@ void Hw4Window::gl_init() {
 			report_error("Program Marching cubes: " + error_string);
 			return;
 		}
+		if ((gl.skybox_program = create_program("skybox")) == nullptr) {
+			report_error("Program Marching cubes: " + error_string);
+			return;
+		}
 	}
 
 	/* framebuffer */ {
@@ -185,15 +200,37 @@ void Hw4Window::gl_init() {
 	}
 
 	/* sphere */ {
-		::Object obj{::Object::load(load_resource("/net/ldvsoft/spbau/gl/sphere.obj"))};
+		::Object obj{::Object::load(load_resource("/net/ldvsoft/spbau/gl/sphere.obj").data)};
 		gl.sphere = make_unique<SceneObject>(obj);
 	}
 
 	/* cube */ {
-		::Object obj{::Object::load(load_resource("/net/ldvsoft/spbau/gl/cube.obj"))};
+		::Object obj{::Object::load(load_resource("/net/ldvsoft/spbau/gl/cube.obj").data)};
 		gl.cube = make_unique<SceneObject>(obj);
 		gl.cube->position = glm::scale(glm::vec3(view_range, view_range, view_range));
+		gl.skybox = make_unique<SceneObject>(obj);
 	}
+
+	/* skybox */ {
+		glGenTextures(1, &gl.skybox_texture);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, gl.skybox_texture);
+		for (int i{0}; i < 6; ++i) {
+			int w, h, n;
+			auto img{load_resource("/net/ldvsoft/spbau/gl/skybox-" + to_string(i) + ".png")};
+			stbi_uc *data = stbi_load_from_memory(img.udata, img.size, &w, &h, &n, 3);
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,
+				GL_RGB, w, h,
+				0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			stbi_image_free(data);
+		}
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	}
+
 	/* marching: geometry */ try {
 		/* context */ {
 			Platform platform = Platform::getDefault();
@@ -202,13 +239,7 @@ void Hw4Window::gl_init() {
 			platform.getDevices(CL_DEVICE_TYPE_GPU, &devices);
 			cl.device = devices[0];
 
-			auto error_callback{
-//				[](char const *str, void const *, size_t, void *) -> void {
-//					std::cout << "OpenCL error: " << str << std::endl;
-//				}
-				nullptr
-			};
-			cl.context = CLContext(cl.device, nullptr, error_callback, nullptr);
+			cl.context = CLContext(cl.device, nullptr, nullptr, nullptr);
 			cl.queue = CommandQueue(cl.context, cl.device, 0);
 
 			std::cout << "OpenCL:\n";
@@ -222,7 +253,7 @@ void Hw4Window::gl_init() {
 		}
 
 		/* marching geometry */ {
-			string kernel(load_resource("/net/ldvsoft/spbau/gl/marching_geometry.cl"));
+			string kernel(load_resource("/net/ldvsoft/spbau/gl/marching_geometry.cl").data);
 			cl::Program program(cl.context, kernel);
 			try {
 				program.build();
@@ -246,6 +277,7 @@ void Hw4Window::gl_finit() {
 	if (area->has_error())
 		return;
 	glDeleteFramebuffers(1, &gl.framebuffer);
+	gl.skybox = nullptr;
 	gl.mesh = nullptr;
 	gl.cube = nullptr;
 	gl.sphere = nullptr;
@@ -335,9 +367,11 @@ bool Hw4Window::gl_render(RefPtr<GLContext> const &context) {
 	switch (display_mode_combobox->get_active_row_number()) {
 	case MARCHING_CUBES:
 		gl_render_marching(get_camera_view(), cam_proj);
+		gl_render_skybox(get_camera_view(), cam_proj);
 		break;
 	case SPHERES:
 		gl_render_spheres(get_camera_view(), cam_proj);
+		gl_render_skybox(get_camera_view(), cam_proj);
 		break;
 	}
 
@@ -538,6 +572,11 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 	/* rrrender */ {
 		gl.marching_program->use();
 
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, gl.skybox_texture);
+
+		glUniform1i(gl.marching_program->get_uniform("skybox"), 0);
+		glUniform3fv(gl.marching_program->get_uniform("eye_world"), 1, &navigation.camera_position[0]);
 		gl_draw_object(*gl.mesh, *gl.marching_program, view, proj);
 
 		glUseProgram(0);
@@ -565,6 +604,23 @@ void Hw4Window::gl_render_spheres(mat4 const &view, mat4 const &proj) {
 	gl_draw_object(*gl.cube, *gl.spheres_program, view, proj);
 
 	glDisable(GL_CULL_FACE);
+
+	glUseProgram(0);
+}
+
+void Hw4Window::gl_render_skybox(mat4 const &view, mat4 const &proj) {
+	gl.skybox_program->use();
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, gl.skybox_texture);
+
+	glUniform1f(gl.skybox_program->get_uniform("size"), 10);
+	glUniform1i(gl.skybox_program->get_uniform("skybox"), 0);
+
+	gl.skybox->animation_position = glm::translate(navigation.camera_position);
+	gl_draw_object(*gl.skybox, *gl.skybox_program, view, proj);
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 
 	glUseProgram(0);
 }

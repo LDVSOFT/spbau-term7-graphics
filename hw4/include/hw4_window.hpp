@@ -51,10 +51,13 @@ private:
 	struct _gl {
 		std::unique_ptr<Program>
 			marching_program,
-			spheres_program;
+			spheres_program,
+			skybox_program;
 
 		static float constexpr fov{60};
 		GLuint framebuffer;
+		GLuint
+			skybox_texture;
 
 		struct sphere {
 			glm::vec3 position;
@@ -64,7 +67,7 @@ private:
 		};
 
 		std::vector<sphere> spheres;
-		std::unique_ptr<SceneObject> sphere, cube, mesh;
+		std::unique_ptr<SceneObject> sphere, cube, mesh, skybox;
 	} gl;
 
 	struct _cl {
@@ -112,6 +115,7 @@ private:
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
 	void gl_render_marching(glm::mat4 const &view, glm::mat4 const &proj);
 	void gl_render_spheres(glm::mat4 const &view, glm::mat4 const &proj);
+	void gl_render_skybox(glm::mat4 const &view, glm::mat4 const &proj);
 	void gl_draw_object(SceneObject const &object, Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 
 	glm::mat4 get_camera_view() const;

@@ -5,6 +5,8 @@
 
 		<file>marching_fragment.glsl</file>
 		<file>marching_vertex.glsl</file>
+		<file>skybox_fragment.glsl</file>
+		<file>skybox_vertex.glsl</file>
 		<file>spheres_fragment.glsl</file>
 		<file>spheres_vertex.glsl</file>
 		
@@ -12,5 +14,12 @@
 
 		<file>sphere.obj</file>
 		<file>cube.obj</file>
+
+		<file>skybox-0.png</file>
+		<file>skybox-1.png</file>
+		<file>skybox-2.png</file>
+		<file>skybox-3.png</file>
+		<file>skybox-4.png</file>
+		<file>skybox-5.png</file>
 	</gresource>
 </gresources>

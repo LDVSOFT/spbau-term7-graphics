@@ -232,7 +232,7 @@ void Hw4Window::gl_init() {
 		glGenTextures(1, &gl.skybox_texture);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, gl.skybox_texture);
 		for (int i{0}; i < 6; ++i) {
-			int w, h, n;
+			int w{}, h{}, n{};
 			auto img{load_resource("/net/ldvsoft/spbau/gl/skybox-" + to_string(i) + ".png")};
 			stbi_uc *data = stbi_load_from_memory(img.udata, img.size, &w, &h, &n, 3);
 			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,

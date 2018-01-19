@@ -1,5 +1,7 @@
 #pragma once
 
+#define GLM_FORCE_SWIZZLE
+
 #include "object.hpp"
 
 #include <epoxy/gl.h>

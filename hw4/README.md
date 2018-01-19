@@ -6,7 +6,7 @@
 * `pkg-config`;
 * GTKmm 3 и всё ему нужное, включая GTK+ 3 и его зависимости (`libgtkmm-3.0-dev`); точно работает при версии `>= 3.22`.
 * GLM (`libglm-dev`).
-* OpenCL (`ocl-icd-opencl-dev`).
+* OpenCL (`ocl-icd-opencl-dev`, а также должен стоять ваш драйвер).
 * Python 3 (`python3`).
 
 ## Управление

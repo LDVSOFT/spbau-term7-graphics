@@ -79,6 +79,7 @@ Hw4Window::Hw4Window(
 	builder->get_widget("display_mode_combobox", display_mode_combobox);
 	builder->get_widget("reset_position_button", reset_position);
 	builder->get_widget("reset_animation_button", reset_animation);
+	builder->get_widget("normalize_power_button", normalize_power);
 
 	ticker_id = gtk_widget_add_tick_callback(GTK_WIDGET(area->gobj()), tick_wrapper, this, nullptr);
 
@@ -88,6 +89,10 @@ Hw4Window::Hw4Window(
 	xresolution_adjustment = RefPtr<Adjustment>::cast_dynamic(builder->get_object("xresolution_adjustment"));
 	yresolution_adjustment = RefPtr<Adjustment>::cast_dynamic(builder->get_object("yresolution_adjustment"));
 	zresolution_adjustment = RefPtr<Adjustment>::cast_dynamic(builder->get_object("zresolution_adjustment"));
+	color_power_adjustment = RefPtr<Adjustment>::cast_dynamic(builder->get_object("color_power_adjustment"));
+	reflect_power_adjustment = RefPtr<Adjustment>::cast_dynamic(builder->get_object("reflect_power_adjustment"));
+	refract_power_adjustment = RefPtr<Adjustment>::cast_dynamic(builder->get_object("refract_power_adjustment"));
+	refract_index_adjustment = RefPtr<Adjustment>::cast_dynamic(builder->get_object("refract_index_adjustment"));
 
 	area->set_required_version(3, 3);
 	area->set_has_depth_buffer();
@@ -101,6 +106,11 @@ Hw4Window::Hw4Window(
 			static_assert(SPHERES == 1);
 			auto &row{*display_mode_list_store->append()};
 			row.set_value<ustring>(0, "Spheres");
+		}
+		/* marching cubes */ {
+			static_assert(SPHERES_WITH_CUBE == 2);
+			auto &row{*display_mode_list_store->append()};
+			row.set_value<ustring>(0, "Spheres (with bounding cube)");
 		}
 
 		display_mode_combobox->set_active(MARCHING_CUBES);
@@ -120,11 +130,18 @@ Hw4Window::Hw4Window(
 	animate->signal_toggled().connect(sigc::mem_fun(*this, &Hw4Window::animate_toggled));
 	reset_position ->signal_clicked().connect(sigc::mem_fun(*this, &Hw4Window::reset_position_clicked));
 	reset_animation->signal_clicked().connect(sigc::mem_fun(*this, &Hw4Window::reset_animation_clicked));
-	spheres_adjustment    ->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::spheres_changed));
-	threshold_adjustment  ->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
-	xresolution_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
-	yresolution_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
-	zresolution_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
+	normalize_power->signal_clicked().connect(sigc::mem_fun(*this, &Hw4Window::normalize_power_clicked));
+
+	spheres_adjustment      ->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::spheres_changed));
+	threshold_adjustment    ->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::geometry_changed));
+	xresolution_adjustment  ->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::geometry_changed));
+	yresolution_adjustment  ->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::geometry_changed));
+	zresolution_adjustment  ->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::geometry_changed));
+	color_power_adjustment  ->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
+	reflect_power_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
+	refract_power_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
+	refract_index_adjustment->signal_value_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
+
 	display_mode_combobox ->signal_changed().connect(sigc::mem_fun(*this, &Hw4Window::options_changed));
 
 	view_range = 1;
@@ -236,7 +253,7 @@ void Hw4Window::gl_init() {
 			Platform platform = Platform::getDefault();
 
 			std::vector<Device> devices;
-			platform.getDevices(CL_DEVICE_TYPE_GPU, &devices);
+			platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
 			cl.device = devices[0];
 
 			cl.context = CLContext(cl.device, nullptr, nullptr, nullptr);
@@ -370,7 +387,11 @@ bool Hw4Window::gl_render(RefPtr<GLContext> const &context) {
 		gl_render_skybox(get_camera_view(), cam_proj);
 		break;
 	case SPHERES:
-		gl_render_spheres(get_camera_view(), cam_proj);
+		gl_render_spheres(get_camera_view(), cam_proj, false);
+		gl_render_skybox(get_camera_view(), cam_proj);
+		break;
+	case SPHERES_WITH_CUBE:
+		gl_render_spheres(get_camera_view(), cam_proj, true);
 		gl_render_skybox(get_camera_view(), cam_proj);
 		break;
 	}
@@ -410,7 +431,7 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		std::cout << "ERROR: " << msg << std::endl;
 	}};
 
-	/* calculations */ try {
+	/* calculations */ if (gl.mesh == nullptr) try {
 		/* HERE AND BELOW:
 		 * OpenCL treats float3 like float4 inside,
 		 * but here we use GLM types...
@@ -576,6 +597,10 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		glBindTexture(GL_TEXTURE_CUBE_MAP, gl.skybox_texture);
 
 		glUniform1i(gl.marching_program->get_uniform("skybox"), 0);
+		glUniform1f(gl.marching_program->get_uniform("color_power"), color_power_adjustment->get_value());
+		glUniform1f(gl.marching_program->get_uniform("reflect_power"), reflect_power_adjustment->get_value());
+		glUniform1f(gl.marching_program->get_uniform("refract_power"), refract_power_adjustment->get_value());
+		glUniform1f(gl.marching_program->get_uniform("refract_index"), refract_index_adjustment->get_value());
 		glUniform3fv(gl.marching_program->get_uniform("eye_world"), 1, &navigation.camera_position[0]);
 		gl_draw_object(*gl.mesh, *gl.marching_program, view, proj);
 
@@ -583,7 +608,7 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 	}
 }
 
-void Hw4Window::gl_render_spheres(mat4 const &view, mat4 const &proj) {
+void Hw4Window::gl_render_spheres(mat4 const &view, mat4 const &proj, bool box) {
 	gl.spheres_program->use();
 
 	glUniform1i(gl.spheres_program->get_uniform("mode"), 0);
@@ -597,13 +622,15 @@ void Hw4Window::gl_render_spheres(mat4 const &view, mat4 const &proj) {
 		gl_draw_object(*gl.sphere, *gl.spheres_program, view, proj);
 	}
 
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_FRONT);
+	if (box) {
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
 
-	glUniform1i(gl.spheres_program->get_uniform("mode"), 1);
-	gl_draw_object(*gl.cube, *gl.spheres_program, view, proj);
+		glUniform1i(gl.spheres_program->get_uniform("mode"), 1);
+		gl_draw_object(*gl.cube, *gl.spheres_program, view, proj);
 
-	glDisable(GL_CULL_FACE);
+		glDisable(GL_CULL_FACE);
+	}
 
 	glUseProgram(0);
 }
@@ -679,7 +706,7 @@ void Hw4Window::tick(gint64 new_time) {
 			break;
 		case animation.STARTED:
 			animation.progress = animation.start_progress + seconds_delta * animation.progress_per_second;
-			area->queue_render();
+			geometry_changed();
 			break;
 		default:
 			break;
@@ -715,7 +742,7 @@ void Hw4Window::tick(gint64 new_time) {
 		if (flag) {
 			direction *= view_range / 20;
 			navigation.camera_position += vec3(inverse(get_camera_view()) * glm::vec4(direction, 0));
-			area->queue_render();
+			options_changed();
 		}
 	}
 }
@@ -731,6 +758,17 @@ void Hw4Window::reset_animation_clicked() {
 	animation.progress = 0;
 	if (animation.state == animation.STARTED)
 		animation.state = animation.PENDING;
+	geometry_changed();
+}
+
+void Hw4Window::normalize_power_clicked() {
+	double value{0};
+	value += color_power_adjustment  ->get_value();
+	value += reflect_power_adjustment->get_value();
+	value += refract_power_adjustment->get_value();
+	color_power_adjustment  ->set_value(color_power_adjustment->get_value()   / value);
+	reflect_power_adjustment->set_value(reflect_power_adjustment->get_value() / value);
+	refract_power_adjustment->set_value(refract_power_adjustment->get_value() / value);
 	options_changed();
 }
 
@@ -745,6 +783,11 @@ void Hw4Window::spheres_changed() {
 		gl.spheres[i].speed  = dist(rand) * 8 + 15;
 		gl.spheres[i].radius = dist(rand) * .1 + .5;
 	}
+	geometry_changed();
+}
+
+void Hw4Window::geometry_changed() {
+	gl.mesh = nullptr;
 	options_changed();
 }
 

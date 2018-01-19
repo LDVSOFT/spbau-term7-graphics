@@ -33,7 +33,7 @@ private:
 	Gtk::EventBox *area_eventbox;
 	Gtk::ToggleButton *animate;
 	Gtk::ComboBox *display_mode_combobox;
-	Gtk::Button *reset_position, *reset_animation;
+	Gtk::Button *reset_position, *reset_animation, *normalize_power;
 
 	Glib::RefPtr<Gtk::ListStore> display_mode_list_store;
 	Glib::RefPtr<Gtk::Adjustment>
@@ -41,11 +41,16 @@ private:
 		threshold_adjustment,
 		xresolution_adjustment,
 		yresolution_adjustment,
-		zresolution_adjustment;
+		zresolution_adjustment,
+		color_power_adjustment,
+		reflect_power_adjustment,
+		refract_power_adjustment,
+		refract_index_adjustment;
 
 	enum display_mode_t {
 		MARCHING_CUBES,
-		SPHERES
+		SPHERES,
+		SPHERES_WITH_CUBE
 	};
 
 	struct _gl {
@@ -114,7 +119,7 @@ private:
 	void gl_finit();
 	bool gl_render(Glib::RefPtr<Gdk::GLContext> const &context);
 	void gl_render_marching(glm::mat4 const &view, glm::mat4 const &proj);
-	void gl_render_spheres(glm::mat4 const &view, glm::mat4 const &proj);
+	void gl_render_spheres(glm::mat4 const &view, glm::mat4 const &proj, bool box);
 	void gl_render_skybox(glm::mat4 const &view, glm::mat4 const &proj);
 	void gl_draw_object(SceneObject const &object, Program const &program, glm::mat4 const &v, glm::mat4 const &p);
 
@@ -123,7 +128,9 @@ private:
 	void animate_toggled();
 	void reset_position_clicked();
 	void reset_animation_clicked();
+	void normalize_power_clicked();
 	void spheres_changed();
+	void geometry_changed();
 	void options_changed();
 	bool mouse_pressed(GdkEventButton *event);
 	bool mouse_released(GdkEventButton *event);

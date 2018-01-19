@@ -87,6 +87,8 @@ def main():
     print()
 
     def plane_id(a, b, c):
+        anded = a & b & c
+        ored = a | b | c
         '''
                5     3
             .-------.
@@ -101,8 +103,6 @@ def main():
          .-------.
         2     4
         '''
-        anded = a & b & c
-        ored = a | b | c
         if (ored & 1) == 0:
             return 0
         if (anded & 1) == 1:
@@ -124,14 +124,14 @@ def main():
 
     def case2(v1, v2, debug):
         if debug:
-            print('\t//   ', '2 triangles around ', v1, ' and ', v2, ', adjustment', sep='')
+            print('\t//   2 triangles around ', v1, ' and ', v2, ', adjustment', sep='')
         a, b = [edge_id(v1, i) for i in adjustment[v1] if i != v2]
         c, d = [edge_id(v2, i) for i in adjustment[v2] if i != v1]
         return [a, b, c, b, c, d]
 
     def case4(v1, v2, v3, debug):
         if debug:
-            print('\t//   ', '3 triangles around ', v1, ', ', v2, ' and ', v3, ', one plane', sep='')
+            print('\t//   3 triangles around ', v1, ', ', v2, ' and ', v3, ', one plane', sep='')
         vs = (v1, v2, v3)
         m = max(vs, key=lambda t: sum([1 if i in vs else 0 for i in adjustment[t]]))
         l, r = [a for a in (v1, v2, v3) if a != m]
@@ -145,7 +145,7 @@ def main():
 
     def case5(v1, v2, v3, v4, debug):
         if debug:
-            print('\t//   ', '2 triangles around ', v1, ', ', v2, ', ', v3, ' and ', v4, ', one plane', sep='')
+            print('\t//   2 triangles around ', v1, ', ', v2, ', ', v3, ' and ', v4, ', one plane', sep='')
         ov3 = [a for a in (v1, v2, v3, v4) if a not in adjustment[v1] and a != v1][0]
         ov2, ov4 = [a for a in (v2, v3, v4) if a != ov3]
         v1, v2, v3, v4 = v1, ov2, ov3, ov4
@@ -157,17 +157,39 @@ def main():
 
     def case6(v1, debug):
         if debug:
-            print('\t//   ', '4 triangles around ', v1, ', star', sep='')
-        return {
-            0: [4, 9, 8, 4, 6, 9, 3, 6, 4, 3, 5, 6],
-            1: [7, 8, 10, 7, 2, 8, 5, 2, 7, 5, 1, 2],
-            2: [2, 11, 9, 2, 7, 11, 0, 7, 2, 0, 3, 7],
-            3: [6, 10, 11, 6, 4, 10, 1, 4, 6, 1, 0, 4],
-            4: [4, 11, 10, 4, 6, 11, 0, 6, 4, 0, 1, 6],
-            5: [7, 9, 11, 7, 2, 9, 3, 2, 7, 3, 0, 2],
-            6: [2, 10, 8, 2, 7, 10, 1, 7, 2, 1, 5, 7],
-            7: [6, 8, 9, 6, 4, 8, 5, 4, 6, 5, 3, 4]
-        }[v1]
+            print('\t//   4 triangles around ', v1, ', star', sep='')
+        a1, a2, a3 = adjustment[v1]
+        e12 = edge_id(a1, 7 - a3)
+        e13 = edge_id(a1, 7 - a2)
+        e21 = edge_id(a2, 7 - a3)
+        e23 = edge_id(a2, 7 - a1)
+        e31 = edge_id(a3, 7 - a2)
+        e32 = edge_id(a3, 7 - a1)
+        return [e31, e12, e13, e31, e21, e12, e32, e21, e31, e32, e23, e21]
+
+    def case7w(vv, debug):
+        ends = [v for v in vv if len([u for u in adjustment[v] if u in vs]) == 1]
+        assert len(ends) == 2
+        v1, v4 = ends
+        v2, v3 = [v for v in vv if v not in ends]
+        if v1 not in adjustment[v2]:
+            v2, v3 = v3, v2
+        return case7(v1, v2, v3, v4, debug)
+
+    def case7(v1, v2, v3, v4, debug):
+        if debug:
+            print('\t//   4 triangles around ', v1, ', ', v2, ', ', v3, ' and ', v4, ', snake', sep='')
+        v13 = [v for v in adjustment[v1] if v not in (v2, 7 - v3)][0]
+        v24 = [v for v in adjustment[v4] if v not in (v3, 7 - v2)][0]
+
+        e1 = edge_id(v1, 7 - v3)
+        e2 = edge_id(v1, v13)
+        e3 = edge_id(v2, v24)
+        e4 = edge_id(v3, v13)
+        e5 = edge_id(v4, v24)
+        e6 = edge_id(v4, 7 - v2)
+        return [e1, e2, e3, e2, e3, e5, e2, e4, e5, e4, e5, e6]
+        # return [e1, e2, e3, e2, e3, e4, e3, e4, e5, e4, e5, e6]
 
     lens = []
     print_debug = True
@@ -240,9 +262,7 @@ def main():
                 if len(stars) == 1:
                     edges_in_case += case6(stars[0], print_debug)
                 else:
-                    if print_debug:
-                        print('\t// UNHANDLED 4', vs)
-                        unhandled += 1
+                    edges_in_case += case7w(vs, print_debug)
 
         assert len(edges_in_case) % 3 == 0
         assert len(edges_in_case) // 3 <= max_triangles
@@ -268,6 +288,7 @@ def main():
     print('#define MAX_TRIANGLES ', max_triangles, file=stderr)
     print(file=stderr)
     print('// CODE ABOVE IS GENERATED', file=stderr)
+
 
 if __name__ == '__main__':
     main()

@@ -33,7 +33,7 @@ RES = hw4.gresource
 
 GENERATED = $(OBJS) \
 	Makefile.deps \
-	$(BIN) $(GEN) $(GEN_DAT) $(GEN_OCL) $(GEN_HDR) $(BINDIR) \
+	$(BIN) $(RES) $(GEN_DAT) $(GEN_OCL) $(GEN_HDR) $(BINDIR) \
 
 SRCS = $(SRC)
 OBJS = $(SRCS:$(SRCDIR)/%.cpp=$(BINDIR)/%.o)

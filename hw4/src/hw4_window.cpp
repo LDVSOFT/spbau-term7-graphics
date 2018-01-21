@@ -568,9 +568,9 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		std::vector<::Object::vertex_data> object_data(vertex_count);
 		std::vector<glm::uvec3> object_elems;
 		for (int i{0}; i < cubes * MAX_TRIANGLES; ++i) {
-			if (triangles.at(3 * i) == -1)
+			if (triangles[3 * i] == -1)
 				continue;
-			object_elems.emplace_back(triangles.at(3 * i), triangles.at(3 * i + 1), triangles.at(3 * i + 2));
+			object_elems.emplace_back(triangles[3 * i], triangles[3 * i + 1], triangles[3 * i + 2]);
 			for (int j{0}; j < 3; ++j) {
 				int id{triangles[3 * i + j]};
 				if (id < 0) {
@@ -580,8 +580,8 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 			}
 		}
 		for (int i{0}; i < vertex_count; ++i) {
-			object_data.at(i).pos = vertex_pos.at(i);
-			object_data.at(i).norm = vertex_norm.at(i);
+			object_data[i].pos = vertex_pos[i];
+			object_data[i].norm = vertex_norm[i];
 		}
 
 		gl.mesh = make_unique<SceneObject>(::Object::manual(object_data, object_elems));

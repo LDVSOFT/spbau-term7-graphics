@@ -19,9 +19,26 @@ void main() {
 
 	output_color += fragment_color * color_power;
 
-	vec3 reflect_to = reflect(fragment_fromeye_world, n);
-	output_color += texture(skybox, reflect_to).xyz * reflect_power;
+	float index_from = 1;
+	float index_to = refract_index;
+	vec3 reflect_to = normalize(reflect(fragment_fromeye_world, n));
+	vec3 refract_to = normalize(refract(fragment_fromeye_world, n, index_from / index_to));
 
-	vec3 refract_to = refract(fragment_fromeye_world, n, 1 / refract_index);
-	output_color += texture(skybox, refract_to).xyz * refract_power;
+	/* from program: */
+	//float reflect_coef = reflect_power;
+	//float refract_coef = refract_power;
+
+	/* fresnel: */
+	float cos_theta_from = dot(reflect_to, +n); // == dot(eye_to, +n)
+	float cos_theta_to   = dot(refract_to, -n);
+	float f_r_parl = pow((index_to * cos_theta_from - index_from * cos_theta_to) / (index_to * cos_theta_from + index_from * cos_theta_to) , 2);
+	float f_r_perp = pow((index_to * cos_theta_from - index_from * cos_theta_to) / (index_from * cos_theta_from + index_to * cos_theta_to) , 2);
+	float reflect_coef = (reflect_power + refract_power) * (f_r_parl + f_r_perp) / 2;
+	//float reflect_coef = reflect_power * pow(1 - cos_theta_from, 5 * refract_power);
+	float refract_coef = (reflect_power + refract_power) - reflect_coef;
+
+	output_color += texture(skybox, reflect_to).xyz * reflect_coef;
+	output_color += texture(skybox, refract_to).xyz * refract_coef;
+
+	//output_color = vec3(1, 1, 1) * reflect_coef;
 }

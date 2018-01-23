@@ -14,6 +14,7 @@
 
 		<file>sphere.obj</file>
 		<file>cube.obj</file>
+		<file>plane.obj</file>
 
 		<file>skybox-0.png</file>
 		<file>skybox-1.png</file>

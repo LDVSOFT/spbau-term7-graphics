@@ -72,7 +72,7 @@ private:
 		};
 
 		std::vector<sphere> spheres;
-		std::unique_ptr<SceneObject> sphere, cube, mesh, skybox;
+		std::unique_ptr<SceneObject> sphere, cube, mesh, skybox, plane;
 	} gl;
 
 	struct _cl {

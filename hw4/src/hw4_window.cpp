@@ -226,6 +226,8 @@ void Hw4Window::gl_init() {
 		gl.cube = make_unique<SceneObject>(obj);
 		gl.cube->position = glm::scale(glm::vec3(view_range, view_range, view_range));
 		gl.skybox = make_unique<SceneObject>(obj);
+		::Object obi{::Object::load(load_resource("/net/ldvsoft/spbau/gl/plane.obj").data)};
+		gl.plane = make_unique<SceneObject>(obi);
 	}
 
 	/* skybox */ {
@@ -603,6 +605,7 @@ void Hw4Window::gl_render_marching(mat4 const &view, mat4 const &proj) {
 		glUniform1f(gl.marching_program->get_uniform("refract_index"), refract_index_adjustment->get_value());
 		glUniform3fv(gl.marching_program->get_uniform("eye_world"), 1, &navigation.camera_position[0]);
 		gl_draw_object(*gl.mesh, *gl.marching_program, view, proj);
+		gl_draw_object(*gl.plane, *gl.marching_program, view, proj);
 
 		glUseProgram(0);
 	}

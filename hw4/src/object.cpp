@@ -2,6 +2,7 @@
 
 #include <epoxy/gl.h>
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/vector_angle.hpp>
 
 #include <locale>

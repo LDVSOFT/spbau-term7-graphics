@@ -5,7 +5,7 @@
 
 #include <gdk/gdkkeysyms.h>
 
-#include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 
 #include <iostream>
@@ -529,7 +529,7 @@ void Hw3Window::gl_draw_objects(Program const &program, glm::mat4 const &v, glm:
 void Hw3Window::gl_draw_lights(Program const &program, glm::mat4 const &v, glm::mat4 const &p) {
 	for (auto const &light: gl.lights) {
 		gl.light_sphere->position =
-			glm::translate(glm::mat4(), light.position)
+			glm::translate(light.position)
 			* glm::scale(glm::vec3(light.radius, light.radius, light.radius));
 
 		glUniform3fv(program.get_uniform("light_world"), 1, &light.position[0]);

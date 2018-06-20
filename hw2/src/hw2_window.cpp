@@ -5,7 +5,7 @@
 
 #include <gdk/gdkkeysyms.h>
 
-#include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 
 #include <iostream>
